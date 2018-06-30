@@ -3,6 +3,7 @@ import numpy as np
 
 import srea
 import functiontimer
+import printers as pr
 
 
 Z_NODE_ID = 0
@@ -38,17 +39,20 @@ class Simulator(object):
         # Initial setup
         self._current_time = 0.0
         self.stn = starting_stn.copy()
+        self._ar_contingent_event_counter = 0
         # Resample the contingent edges.
         # Super important!
-        print("resampling")
+        pr.verbose("Resampling Stored STN")
         self.resample_stored_stn()
 
         # Setup options
         first_run = True
         options = {"first_run": True,
                    "executed_contingent": False}
-        if "threshold" in sim_options:
-           options["threshold"] = sim_options["threshold"]
+        if "threshold_si" in sim_options:
+           options["threshold_si"] = sim_options["threshold_si"]
+        if "threshold_ar" in sim_options:
+           options["threshold_ar"] = sim_options["threshold_ar"]
 
         # Setup default guide settings
         guide_stn = self.stn
@@ -61,18 +65,23 @@ class Simulator(object):
                 first_run = False
 
             # Calculate the guide STN.
+            pr.vverbose("Getting Guide...")
             functiontimer.start_timer("get_guide")
             current_alpha, guide_stn = self.get_guide(execution_strat,
                                                       current_alpha,
                                                       guide_stn,
                                                       options=options)
             functiontimer.stop_timer("get_guide")
+            pr.vverbose("Got guide")
 
             # Select the next timepoint.
+            pr.vverbose("Selecting timepoint...")
             functiontimer.start_timer("selection")
             selection = self.select_next_timepoint(guide_stn,
                                                    self._current_time)
             functiontimer.stop_timer("selection")
+            pr.vverbose("Selected timepoint, node_id of {}"
+                        .format(selection[0]))
 
             next_vert_id = selection[0]
             next_time = selection[1]
@@ -80,14 +89,17 @@ class Simulator(object):
 
             options['executed_contingent'] = executed_contingent
 
-            self.assign_timepoint(guide_stn, next_vert_id, next_time)
             # Propagate constraints (minimise) and check consistency.
+            self.assign_timepoint(guide_stn, next_vert_id, next_time)
+            self.assign_timepoint(self.stn, next_vert_id, next_time)
             consistent = self.propagate_constraints(self.stn.copy())
             if not consistent:
-                print("Next point {}, at {}".format(next_vert_id, next_time))
+                pr.verbose("Failed to place point {}, at {}"
+                           .format(next_vert_id, next_time))
                 return False
-            self.assign_timepoint(self.stn, next_vert_id, next_time)
+            pr.vverbose("Propagating our STN")
             self.propagate_constraints(self.stn)
+            pr.vverbose("Done propagating our STN")
             self._current_time = next_time
         return True
 
@@ -157,11 +169,13 @@ class Simulator(object):
             stn.update_edge(Z_NODE_ID,
                             vert_id,
                             time,
-                            create=True)
+                            create=True,
+                            force=True)
             stn.update_edge(vert_id,
                             Z_NODE_ID,
                             -time,
-                            create=True)
+                            create=True,
+                            force=True)
         stn.get_vertex(vert_id).execute()
 
     def propagate_constraints(self, stn_to_prop):
@@ -222,13 +236,28 @@ class Simulator(object):
             return 0.0, self.stn
         if execution_strat == "srea":
             return self._srea_algorithm(previous_alpha,
-                                        previous_guide, options)
+                                        previous_guide,
+                                        options["first_run"])
         if execution_strat == "drea":
             return self._drea_algorithm(previous_alpha,
-                                        previous_guide, options)
+                                        previous_guide,
+                                        options["first_run"],
+                                        options["executed_contingent"])
         if execution_strat == "drea-si":
             return self._drea_si_algorithm(previous_alpha,
-                                           previous_guide, options)
+                                           previous_guide,
+                                           options["first_run"],
+                                           options["threshold_si"])
+        if execution_strat == "drea-ar":
+            if options["executed_contingent"]:
+                self._ar_contingent_event_counter += 1
+            ans = self._drea_ar_algorithm(previous_alpha,
+                                          previous_guide,
+                                          options["first_run"],
+                                          options["threshold_ar"],
+                                          self._ar_contingent_event_counter)
+            self._ar_contingent_event_counter = ans[2]
+            return ans[0], ans[1]
         else:
             raise ValueError(("Execution strategy '{}'"
                               " unknown").format(execution_strat))
@@ -245,40 +274,70 @@ class Simulator(object):
         # Follow the previous guide?
         return previous_alpha, previous_guide
 
-    def _srea_algorithm(self, previous_alpha, previous_guide, options):
+    def _srea_algorithm(self, previous_alpha, previous_guide, first_run):
         """ Implements the SREA algorithm. """
-        if options["first_run"]:
+        if first_run:
             return self._srea_wrapper(previous_alpha, previous_guide)
         # Not our first run, use the previous guide.
         return previous_alpha, previous_guide
 
-    def _drea_algorithm(self, previous_alpha, previous_guide, options):
+    def _drea_algorithm(self, previous_alpha, previous_guide, first_run,
+                        executed_contingent):
         """ Implements the DREA algorithm. """
-        if options["first_run"] or options["executed_contingent"]:
+        if first_run or executed_contingent:
             return self._srea_wrapper(previous_alpha, previous_guide)
         return previous_alpha, previous_guide
 
-    def _drea_si_algorithm(self, previous_alpha, previous_guide, options):
+    def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
+                           threshold):
         """ Implements the DREA-SI algorithm. """
-        if "threshold" in options:
-            threshold = options["threshold"]
-        else:
-            raise ValueError("No 'threshold' option for DREA-SI, options "
-                             "were: {}".format(options))
-        new_alpha, maybe_guide = srea.srea(self.stn)
+        result = srea.srea(self.stn)
         # Exit early if the STN was not consistent at all.
-        if maybe_guide is None:
+        if result is None:
             return previous_alpha, previous_guide
-        if options["first_run"]:
+
+        new_alpha = result[0]
+        maybe_guide = result[1]
+        if first_run:
+            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
 
-        # num_cont : Number of unexecuted contingent events
+        # num_cont : Number of remaining unexecuted contingent events
         num_cont = 0
         for i in maybe_guide.received_timepoints:
-            if not i.is_executed():
+            if not maybe_guide.get_vertex(i).is_executed():
                 num_cont += 1
 
-        if (1-new_alpha)**num_cont - (1-previous_alpha)**num_cont > threshold:
+        p_0 = (1-previous_alpha)**num_cont
+        p_1 = (1-new_alpha)**num_cont
+        if p_1 - p_0 > threshold:
+            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
         else:
+            pr.verbose("Did not reschedule, p_0={}, p_1={}".format(p_0, p_1))
             return previous_alpha, previous_guide
+
+    def _drea_ar_algorithm(self, previous_alpha, previous_guide, first_run,
+                           threshold, contingent_event_counter):
+        """ Implements the DREA-AR algorithm. """
+        if first_run:
+            result = srea.srea(self.stn)
+            if result is not None:
+                return result[0], result[1], contingent_event_counter
+
+        # n is a placeholder for how much uncertainty we can take.
+        n = 0
+        while (1-previous_alpha)**(n+1) > threshold:
+            n += 1
+
+        # Temporary variable to maintain unique names.
+        new_counter = contingent_event_counter
+        if contingent_event_counter >= n or first_run:
+            result = srea.srea(self.stn)
+            if result is not None:
+                pr.verbose("DREA-AR rescheduled our STN")
+                new_alpha = result[0]
+                maybe_guide = result[1]
+                new_counter = 0
+                return new_alpha, maybe_guide, new_counter
+        return previous_alpha, previous_guide, new_counter

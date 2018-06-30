@@ -380,6 +380,8 @@ class STN(object):
         self.edges[(i,j)] = edge
         if edge.distribution != None:
             self.contingent_edges[(i,j)] = edge
+            self.received_timepoints.append(j)
+            self.parent[j] = i
         elif self.get_vertex(i).ownerID != self.get_vertex(j).ownerID and \
                 self.get_vertex(i).ownerID is not None:
             self.interagent_edges[(i,j)] = edge
@@ -589,10 +591,9 @@ class STN(object):
             return 0.0
         if (self.get_edge_weight(0, node_id) !=
                 -self.get_edge_weight(node_id, 0)):
-            print(("[Warning] Assigned Time Not Fixed! Times were [{}, {}]")
-                  .format(-self.get_edge_weight(node_id, 0),
-                          self.get_edge_weight(0, node_id)))
-            return -self.get_edge_weight(node_id, 0)
+            print(self.get_edge_weight(0, node_id),
+                  -self.get_edge_weight(node_id, 0))
+            return None
         return self.get_edge_weight(0, node_id)
 
     # returns True if the time point has been executed or if the previous
@@ -729,7 +730,7 @@ class STN(object):
             for i in verts:
                 for j in verts:
                     B[i][j] = min(B[i][j], B[i][k] + B[k][j])
-                    self.update_edge(i,j,B[i][j], create=create)
+                    self.update_edge(i, j, B[i][j], create=create)
 
         for e in self.get_all_edges():
             if e.get_weight_min() > e.get_weight_max():

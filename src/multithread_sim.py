@@ -32,7 +32,10 @@ def main():
 
     sim_options = {}
     if args.execution == "drea-si":
-        sim_options["threshold"] = args.threshold
+        sim_options["threshold_si"] = args.threshold
+    elif args.execution == "drea-ar":
+        print("Here")
+        sim_options["threshold_ar"] = args.threshold
 
     results = multiple_simulations(stn, args.execution, sim_count,
                                    threads=args.threads,
