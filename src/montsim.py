@@ -233,7 +233,7 @@ class Simulator(object):
             [1]: dispatch (type STN) which the simulator should follow,
         """
         if execution_strat == "early":
-            return 0.0, self.stn
+            return 1.0, self.stn
         if execution_strat == "srea":
             return self._srea_algorithm(previous_alpha,
                                         previous_guide,
