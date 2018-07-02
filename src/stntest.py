@@ -1,11 +1,7 @@
-import optimal_decoupling
+import optdecouple
 import stntools
 
-s = stntools.STN()
-s.add_vertex(0, 0)
-s.add_vertex(1, 0)
-s.add_vertex(2, 0)
-s.add_edge(0, 1, 0, 1000.0)
-s.add_edge(0, 2, 100.0, 1000.0)
+stn_file = "/home/crystal/robotbrunch/handmade_stns/two_agent_T_normal.json"
+s = stntools.load_stn_from_json_file(stn_file)["stn"]
 
-optimal_decoupling.optimal_decouple_agents(s)
+optdecouple.optimal_decouple_agents(s)

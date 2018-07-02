@@ -1,13 +1,15 @@
 """ List of debugging print functions
 """
 
-verbosity = 1
+verbosity = 0
 warningness = 1
 
 def set_verbosity(val):
-    verbosity = 0
+    global verbosity
+    verbosity = val
 
 def set_warning(val):
+    global warningness
     warningness = val
 
 def verbose(msg) -> None:
