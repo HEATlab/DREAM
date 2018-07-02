@@ -207,13 +207,13 @@ class Simulator(object):
         for e in self.stn.contingent_edges.values():
             e.resample(self._rand_state)
 
-    def get_assigned_times(self) -> list:
-        times = []
-        for i, v in enumerate(self.stn.get_all_verts()):
+    def get_assigned_times(self) -> dict:
+        times = {}
+        for key, v in self.stn.verts.items():
             if v.is_executed():
-                times.append(self.stn.get_assigned_time(i))
+                times[key] = (self.stn.get_assigned_time(key))
             else:
-                times.append(None)
+                times[key] = (None)
         return times
 
     def get_guide(self, execution_strat, previous_alpha,

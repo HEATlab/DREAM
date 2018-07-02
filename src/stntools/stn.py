@@ -2,14 +2,16 @@ import math
 import random
 import numpy as np
 
-## \file stntools.py
+# \file stntools.py
 #  \brief tools for working with STNs
 
-## \class Vertex
+# \class Vertex
 #  \brief Represents an STN timepoint
+
+
 class Vertex(object):
 
-    ## \brief Vertex Constructor
+    # \brief Vertex Constructor
     #  \param nodeID The unique ID number of the vertex in the STN.
     #  \param localID The ID number of the vertex for only the agent
     #  that owns the vertex.
@@ -20,34 +22,35 @@ class Vertex(object):
     #  has
     #                      been executed.
     def __init__(self, nodeID, ownerID, location=None):
-        ## The unique ID number of the vertex in the STN.
+        # The unique ID number of the vertex in the STN.
         self.nodeID = nodeID
-        ## The ID number of the agent that owns the vertex.
+        # The ID number of the agent that owns the vertex.
         self.ownerID = ownerID
-        ## The grid point number indicating the physical location of the node.
+        # The grid point number indicating the physical location of the node.
         self.location = location
-        ## Flag for the simulator that indicates if the vertex has been executed.
+        # Flag for the simulator that indicates if the vertex has been executed.
         self.executed = False
 
-    ## \brief Vertex String Representation
+    # \brief Vertex String Representation
     def __repr__(self):
-        return "Vertex {} owned by agent {}".format(self.nodeID,self.ownerID)
+        return "Vertex {} owned by agent {}".format(self.nodeID, self.ownerID)
 
-    ## \brief Return a copy of this vertex (with identical IDs and
+    # \brief Return a copy of this vertex (with identical IDs and
     #   execution, so beware).
     def copy(self):
-        newVert = Vertex(self.nodeID, self.localID, self.ownerID, self.location)
+        newVert = Vertex(self.nodeID, self.localID,
+                         self.ownerID, self.location)
         if self.executed:
             newVert.execute()
         return newVert
 
-    ## \brief Return a ready-for-json dictionary of this timepoint
+    # \brief Return a ready-for-json dictionary of this timepoint
     def for_json(self):
         return {"node_id": self.nodeID, "local_id": self.localID,
                 "owner_id": self.ownerID, "location": self.location,
                 "executed": self.executed}
 
-    ## \brief sets the vertex as executed by the agents
+    # \brief sets the vertex as executed by the agents
     def execute(self):
         self.executed = True
 
@@ -55,12 +58,12 @@ class Vertex(object):
         return self.executed
 
 
-## \class Edge
+# \class Edge
 #  \brief represents an STN constraint
 #  \note distribution is the name of the distribution only
 class Edge(object):
 
-    ## \brief Edge Constructor
+    # \brief Edge Constructor
     #  \param i            The starting node of the edge.
     #  \param j            The ending node of the edge.
     #  \param Tmin         The min time needed to go from node i to node j.
@@ -68,31 +71,31 @@ class Edge(object):
     #  \param distribution The name of the distriution used in the edge.
     #  \param fake         Flag indicating if the edge is fake
     def __init__(self, i, j, Tmin, Tmax, distribution=None, fake=False):
-        ## The starting node of the edge.
+        # The starting node of the edge.
         self.i = i
 
-        ## The ending node of the edge.
+        # The ending node of the edge.
         self.j = j
 
-        ## The maximum amount of time allotted.
+        # The maximum amount of time allotted.
         self.Cij = Tmax
 
-        ## The negated minimum amount of time allotted. (In this form for notation)
+        # The negated minimum amount of time allotted. (In this form for notation)
         self.Cji = -Tmin
 
-        ## The string representation of the distribution
+        # The string representation of the distribution
         self.distribution = distribution
 
         self._sampled_time = 0
 
-    ## \brief Return a ready-for-json dictionary of this constraint
+    # \brief Return a ready-for-json dictionary of this constraint
     def for_json(self):
-        json =  {"first_node": self.i,
+        json = {"first_node": self.i,
                 "second_node": self.j}
 
         if self.distribution is not None:
-            json["distribution"] = {"name":self.distribution,
-                                    "type":"Empirical"}
+            json["distribution"] = {"name": self.distribution,
+                                    "type": "Empirical"}
 
         if self.Cji == float('inf'):
             json['min_duration'] = '-inf'
@@ -106,7 +109,7 @@ class Edge(object):
 
         return json
 
-    ## \brief gets the weight of the edge between Vertex i and j
+    # \brief gets the weight of the edge between Vertex i and j
     #  \param i the starting node of the edge
     #  \param j the ending node of the edge
     def get_weight(self, i, j):
@@ -115,19 +118,19 @@ class Edge(object):
         else:
             return self.Cji
 
-    ## \brief The minimum weight of the edge
+    # \brief The minimum weight of the edge
     def get_weight_min(self):
         return -self.Cji
 
-    ## \brief The maximum weight of the edge
+    # \brief The maximum weight of the edge
     def get_weight_max(self):
         return self.Cij
 
-    ## \brief Checks if edge has a probability distribution
+    # \brief Checks if edge has a probability distribution
     def is_contingent(self):
         return self.distribution != None
 
-    ## \brief The string representation of the edge
+    # \brief The string representation of the edge
     def __repr__(self):
         return "Edge {} => {} [{}, {}]".format(self.i, self.j, -self.Cji,
                                                self.Cij)
@@ -176,59 +179,61 @@ class Edge(object):
 ##
 # \class STN
 # \brief A representation of an entire STN.
+
+
 class STN(object):
 
-    ## The Zero Timepoint.
-    Z_TIMEPOINT = Vertex(0,0,None)
+    # The Zero Timepoint.
+    Z_TIMEPOINT = Vertex(0, 0, None)
 
-    ## \brief STN constructor
+    # \brief STN constructor
     def __init__(self):
-        ## A dictionary of vertices in the STN in the form {NodeID: Node_Object}
+        # A dictionary of vertices in the STN in the form {NodeID: Node_Object}
         self.verts = {}
 
-        ## A dictionary of edges in the STN in the form
+        # A dictionary of edges in the STN in the form
         # {(Node1, Node2): Edge_Object}
         self.edges = {}
 
-        ## A reverse lookup dictionary of Nodes in contingent edges in the form
+        # A reverse lookup dictionary of Nodes in contingent edges in the form
         # {NodeID_End, NodeID_Start}
         self.parent = {}
 
         self.received_timepoints = []
 
-        ## A dictionary of contingent edges in the form
+        # A dictionary of contingent edges in the form
         # {(Node1, Node2): Edge_Object}
         self.contingent_edges = {}
 
-        ## A dictionary of interagent edges in the form
+        # A dictionary of interagent edges in the form
         # {(Node1, Node2): Edge_Object}
         self.interagent_edges = {}
 
-        ## A dictionary of requirement edges in the form
+        # A dictionary of requirement edges in the form
         # {(Node1, Node2): Edge Object}
         self.requirement_edges = {}
 
-        ## The total amount of time allowed for an STN (implemented in
+        # The total amount of time allowed for an STN (implemented in
         # milliseconds)
         self.makespan = None
 
-        ## List of agents involved in the STN.
+        # List of agents involved in the STN.
         self.agents = []
 
-    ## \brief String representation of the STN
+    # \brief String representation of the STN
     def __str__(self):
         toPrint = ""
-        for (i,j),edge in sorted(self.edges.items()):
-            #if edge.fake:
+        for (i, j), edge in sorted(self.edges.items()):
+            # if edge.fake:
             #    toPrint += "("
 
             if edge.i == 0:
                 toPrint += "Vertex {}: [{}, {}]".format(edge.j,
-                                                        -edge.Cji,edge.Cij)
+                                                        -edge.Cji, edge.Cij)
             else:
-                toPrint += "Edge {} => {}: [{}, {}]".format(edge.i,edge.j,
-                                                            -edge.Cji,edge.Cij)
-            toPrint+="\n"
+                toPrint += "Edge {} => {}: [{}, {}]".format(edge.i, edge.j,
+                                                            -edge.Cji, edge.Cij)
+            toPrint += "\n"
         return toPrint
 
     ##
@@ -272,7 +277,6 @@ class STN(object):
         # Just get a subSTN where all the verts belong to one agent.
         return self.getSubSTN(self.getAgentVerts(agent), includeZTimepoint)
 
-
     ##
     # \fn getSubSTN
     #
@@ -281,6 +285,7 @@ class STN(object):
     # @param vertexList         A List of Vertex objects that are part of the
     #                           STN.
     # @param includeZTimepoint  Boolean, do we want to add the Z-timepoint?
+
     def getSubSTN(self, vertexList, includeZTimepoint):
         subSTN = STN()
 
@@ -289,7 +294,7 @@ class STN(object):
         # vertices, for whatever reason. This seems like a bug.
         # To prevent breaking everything, I've created a list of IDs.
         # (This is currently functional)
-        vertIDList = [ v.nodeID for v in vertexList ]
+        vertIDList = [v.nodeID for v in vertexList]
         if includeZTimepoint:
             vertIDList.append(0)
 
@@ -309,7 +314,8 @@ class STN(object):
             # Check if both ends of the edge are in the new subSTN
             if (e.i in vertIDList) and (e.j in vertIDList):
                 # TODO: should use copy()
-                subSTN.add_edge(e.i, e.j, -e.Cji, e.Cij, e.distribution, e.fake)
+                subSTN.add_edge(e.i, e.j, -e.Cji, e.Cij,
+                                e.distribution, e.fake)
 
         # Assign the agents used in the STN
         subSTN.agents = agentsFound
@@ -328,16 +334,15 @@ class STN(object):
     def add_vertex(self, nodeID, ownerID, location=None):
         self.verts[nodeID] = Vertex(nodeID, ownerID, location)
 
-
     ##
     # \fn add_created_vertex
     # \brief Takes in a vertex and adds it to the STN
     #
     # @param vertex        The vertex to be added to the STN
+
     def add_created_vertex(self, vertex):
         nodeID = vertex.nodeID
         self.verts[nodeID] = vertex
-
 
     ##
     # \fn add_edge
@@ -351,18 +356,19 @@ class STN(object):
     # @param fake         Flag for if the edge is fake
     # @post               A new edge, generated from the arguments is added to
     #                     the STN.
+
     def add_edge(self, i, j, Tmin, Tmax, distribution=None):
         newEdge = Edge(i, j, Tmin, Tmax, distribution)
-        self.edges[(i,j)] = newEdge
+        self.edges[(i, j)] = newEdge
         if distribution != None:
-            self.contingent_edges[(i,j)] = newEdge
+            self.contingent_edges[(i, j)] = newEdge
             self.received_timepoints += [j]
             self.parent[j] = i
         elif self.get_vertex(i).ownerID != self.get_vertex(j).ownerID \
                 and self.get_vertex(i).ownerID is not None:
-            self.interagent_edges[(i,j)] = newEdge
+            self.interagent_edges[(i, j)] = newEdge
         else:
-            self.requirement_edges[(i,j)] = newEdge
+            self.requirement_edges[(i, j)] = newEdge
 
     ##
     # \fn add_created_edge
@@ -377,21 +383,20 @@ class STN(object):
         i = edge.i
         j = edge.j
 
-        self.edges[(i,j)] = edge
+        self.edges[(i, j)] = edge
         if edge.distribution != None:
-            self.contingent_edges[(i,j)] = edge
+            self.contingent_edges[(i, j)] = edge
             self.received_timepoints.append(j)
             self.parent[j] = i
         elif self.get_vertex(i).ownerID != self.get_vertex(j).ownerID and \
                 self.get_vertex(i).ownerID is not None:
-            self.interagent_edges[(i,j)] = edge
+            self.interagent_edges[(i, j)] = edge
         else:
-            self.requirement_edges[(i,j)] = edge
+            self.requirement_edges[(i, j)] = edge
 
     # -------------------------------------------------------------------------
     # Agent functions #
     # -------------------------------------------------------------------------
-
 
     ##
     # \fn getAgentVerts
@@ -399,45 +404,46 @@ class STN(object):
     #
     # @param agentID Integer representing the ID of the agent.
     # @return Returns a list of Nodes that belong to the specified agent.
+
     def getAgentVerts(self, agentID):
         return [v for v in self.get_all_verts() if v.ownerID == agentID]
-
 
     ##
     # \fn get_all_verts
     # \brief Gets all the Nodes in the STN
     #
     # @return Returns an unordered List of all Node objects in the STN.
+
     def get_all_verts(self):
         return list(self.verts.values())
 
-
-    ## \brief Get a vertex by agent ID and local ID
+    # \brief Get a vertex by agent ID and local ID
     #  \param agentID The agent ID number of the owner of the vertex
     #  \param localID The local ID number of the vertex
+
     def getAgentVertexID(self, agentID, localID):
         for v in self.get_all_verts():
             if v.ownerID == agentID and v.localID == localID:
                 return v
         return None
 
-
-    ## \brief Return a list of edges incident to this node
+    # \brief Return a list of edges incident to this node
     #  \param nodeID The ID of the vertex
+
     def get_edges_incident(self, nodeID):
         return [e for e in self.get_all_edges() if e.i == nodeID
-                  or e.j == nodeID]
+                or e.j == nodeID]
 
-
-    ## \brief Returns the degree (number of edges) of a vertex
+    # \brief Returns the degree (number of edges) of a vertex
     #  \param nodeID The ID of the vertex.
+
     def getDegree(self, nodeID):
         return len(self.get_edges_incident(nodeID))
 
-
-    ## \brief Returns a list of nodes adjacent to a given node
+    # \brief Returns a list of nodes adjacent to a given node
     #  \param nodeID The ID of the node
-    def getAdjacent(self, nodeID):
+
+    def get_adjacent(self, nodeID):
         adj = []
         edges = self.get_edges_incident(nodeID)
         for e in edges:
@@ -447,9 +453,31 @@ class STN(object):
                 adj.append(e.j)
         return adj
 
+    def is_interagent_edge(self, from_vert_id, to_vert_id,
+                           bidirectional=False):
+        """ Returns a boolean indicating whether the edge between two vertices
+        is an interagent edge.
 
-    ## \brief Removes a node from the STP
+        Args:
+            from_vert_id (int): From vertex id.
+            to_vert_id (int): To vertex id.
+            bidirectional (:obj:`bool`, optional): Should we search
+                bidirectionally?
+
+        Returns:
+            Returns True if the edge is an interagent edge. Returns False if
+            the edge is not, or does not exist.
+        """
+        if not bidirectional:
+            return ((from_vert_id, to_vert_id) in self.interagent_edges)
+        else:
+            return ((from_vert_id, to_vert_id) in self.interagent_edges or
+                    (to_vert_id, from_vert_id) in self.interagent_edges)
+
+
+    # \brief Removes a node from the STP
     #  \param nodeID the ID of the node to be removed
+
     def removeVertex(self, nodeID):
         if nodeID in self.verts:
             del self.verts[nodeID]
@@ -458,20 +486,20 @@ class STN(object):
                 self.received_timepoints.remove(nodeID)
 
             toRemove = []
-            for i,j in self.edges:
+            for i, j in self.edges:
                 if i == nodeID or j == nodeID:
-                    toRemove += [(i,j)]
-            for i,j in toRemove:
-                del self.edges[(i,j)]
-                if (i,j) in self.contingent_edges:
-                    del self.contingent_edges[(i,j)]
-                if (i,j) in self.interagent_edges:
-                    del self.interagent_edges[(i,j)]
-                if (i,j) in self.requirement_edges:
-                    del self.requirement_edges[(i,j)]
+                    toRemove += [(i, j)]
+            for i, j in toRemove:
+                del self.edges[(i, j)]
+                if (i, j) in self.contingent_edges:
+                    del self.contingent_edges[(i, j)]
+                if (i, j) in self.interagent_edges:
+                    del self.interagent_edges[(i, j)]
+                if (i, j) in self.requirement_edges:
+                    del self.requirement_edges[(i, j)]
 
-            self.tris = [t for t in self.tris \
-                                 if t.i != nodeID and t.j != nodeID and t.k != nodeID]
+            self.tris = [t for t in self.tris
+                         if t.i != nodeID and t.j != nodeID and t.k != nodeID]
 
     ##
     # \fn get_vertex
@@ -501,15 +529,15 @@ class STN(object):
     # @return Returns an Edge object if one exists between i & j. If not, return
     #   None.
     def get_edge(self, i, j):
-        if (i,j) in self.edges:
-            return self.edges[(i,j)]
-        elif (j,i) in self.edges:
-            return self.edges[(j,i)]
+        if (i, j) in self.edges:
+            return self.edges[(i, j)]
+        elif (j, i) in self.edges:
+            return self.edges[(j, i)]
         else:
             return None
 
+    # \brief Ges all edges of the STP
 
-    ## \brief Ges all edges of the STP
     def get_all_edges(self):
         return list(self.edges.values())
 
@@ -544,8 +572,7 @@ class STN(object):
     # @return Returns a boolean on whether or not an edge exists between the
     #   inputted nodes. Direction is not accounted for.
     def edgeExists(self, i, j):
-        return ((i,j) in self.edges) or ((j,i) in self.edges)
-
+        return ((i, j) in self.edges) or ((j, i) in self.edges)
 
     ##
     # \fn update_edge
@@ -561,6 +588,7 @@ class STN(object):
     #    original weight is the same as w (the new weight). Nothing will
     #    actually change, but the function will return True.
     # @return Returns boolean whether or not the update actually occured.
+
     def update_edge(self, i, j, w, equality=False, force=False, create=False):
         e = self.get_edge(i, j)
         if e == None:
@@ -626,7 +654,7 @@ class STN(object):
         return [e for e in self.get_all_edges() if e.i == node_id]
 
     def get_incoming_contingent(self, nodeID):
-        ctg = [self.contingent_edges[(i,j)] for (i,j) in self.contingent_edges
+        ctg = [self.contingent_edges[(i, j)] for (i, j) in self.contingent_edges
                if j == nodeID]
         if len(ctg) > 1:
             print('[Error]: {} incoming contingent edges!\n{}'.format(
@@ -636,12 +664,12 @@ class STN(object):
             return None
         return ctg[0]
 
-
-    def printExecuted(self, nodeID):
-        nodes = [e.i for e in self.get_all_edges() if e.j == nodeID and not e.fake]
+    def print_executed(self, nodeID):
+        nodes = [e.i for e in self.get_all_edges() if e.j ==
+                 nodeID and not e.fake]
         for n in nodes:
             for node in self.get_all_verts():
-                print("I have: %d" %(node.nodeID))
+                print("I have: %d" % (node.nodeID))
                 if node.nodeID == n:
                     print("%d: %d" % (node.nodeID, node.executed))
 
@@ -649,19 +677,18 @@ class STN(object):
         if nodeID in self.verts:
             self.verts[nodeID].execute()
 
-    def setMakespan(self,makespan):
+    def set_makespan(self, makespan):
         self.makespan = makespan
         currentMakespan = 0
         for vert in self.verts:
             if vert != 0:
-                val = self.edges[(0,vert)].Cij
+                val = self.edges[(0, vert)].Cij
                 if val > currentMakespan:
                     currentMakespan = val
         for vert in self.verts:
             if vert != 0:
-                if self.edges[(0,vert)].Cij == currentMakespan:
-                    self.edges[(0,vert)].Cij = makespan
-
+                if self.edges[(0, vert)].Cij == currentMakespan:
+                    self.edges[(0, vert)].Cij = makespan
 
     def for_json(self):
         jsonSTN = {}
@@ -672,8 +699,8 @@ class STN(object):
             if v.nodeID == 0:
                 continue
             json = v.for_json()
-            json['min_domain'] = -self.get_edgeWeight(v.nodeID,0)
-            json['max_domain'] = self.get_edgeWeight(0,v.nodeID)
+            json['min_domain'] = -self.get_edgeWeight(v.nodeID, 0)
+            json['max_domain'] = self.get_edgeWeight(0, v.nodeID)
             jsonSTN['nodes'].append(json)
 
         # Add the edges
@@ -687,13 +714,12 @@ class STN(object):
 
         return jsonSTN
 
-
     def add_all_edges(self):
         verts = list(range(len(self.verts)))
         for i in verts:
             for j in verts:
-                if not self.get_edge(i,j) and i != j:
-                    self.add_edge(i,j,-float('inf'),float('inf'),fake = True)
+                if not self.get_edge(i, j) and i != j:
+                    self.add_edge(i, j, -float('inf'), float('inf'), fake=True)
 
     # initial attempt (Summer 2017) to fix the cycle problem in running the
     # timeline simulation flips edges and adjusts weights accordingly
@@ -708,7 +734,7 @@ class STN(object):
             if val1 == -1.0 and val2 == -1.0:
                 max_val = -1.0 * max_val
                 min_val = -1.0 * min_val
-                new_edges[(key[1],key[0])] = Edge(
+                new_edges[(key[1], key[0])] = Edge(
                     value.j,
                     value.i,
                     max_val,
@@ -719,13 +745,12 @@ class STN(object):
                 new_edges[key] = self.edges[key]
         self.edges = new_edges
 
+    # \fn FloydWarshall()
+    # \brief Runs the Floyd-Warshal algorithm on an STN
 
-
-    ## \fn FloydWarshall()
-    #  \brief Runs the Floyd-Warshal algorithm on an STN
     def floyd_warshall(self, create=False):
         verts = list(range(len(self.verts)))
-        B = [ [self.get_edge_weight(i,j) for j in verts] for i in verts ]
+        B = [[self.get_edge_weight(i, j) for j in verts] for i in verts]
         for k in verts:
             for i in verts:
                 for j in verts:
@@ -737,10 +762,9 @@ class STN(object):
                 return False
         return True
 
-
-    ## \brief minimizes the stn if possible
+    # \brief minimizes the stn if possible
     #  and returns true if consistent
-    #def minimize(self):
+    # def minimize(self):
     #    # Triangulate the STN
     #    stnCopy = self.copy()
     #    agentWait = []
@@ -771,9 +795,9 @@ class STN(object):
     #    # Get PPC
     #    return DItriSTP(self, updateQueue, triangleQueue)
 
-    ## \brief minimizes the stn if possible
+    # \brief minimizes the stn if possible
     #  and returns true if consistent
-    #def minimize_alpha(self, alpha):
+    # def minimize_alpha(self, alpha):
     #    # Triangulate the STN
     #    stnCopy = self.copy()
     #    agentWait = []
@@ -802,7 +826,7 @@ class STN(object):
 
     # This functionality was used in Lund et al. 2017 to expand the amount of
     #   probability mass captured by the algorithm given a risk budget.
-    #def minimize_binary_search(self, lb = 0.0, ub = 0.999):
+    # def minimize_binary_search(self, lb = 0.0, ub = 0.999):
     #    bestSTN = None
     #    alphas = { i : str(round(i/1000.0,3)) for i in range(1001)}
     #    # bounds for binary search
@@ -828,17 +852,18 @@ class STN(object):
     # An STN is strongly controllable if any assignment of values for executable
     #   timepoints is guaranteed to be consistent with all constraints
     #   (irrespective of contingent edges) (copied from Lund et al. 2017).
-    def isStronglyControllable(self, debug=False, returnSTN = False):
+
+    def isStronglyControllable(self, debug=False, returnSTN=False):
         if not self.possiblyStronglyControllable:
             if returnSTN:
-                return False,None
+                return False, None
             else:
                 return False
 
         stn_copy = self.copy()
         if not stn_copy.floydWarshall():
             if returnSTN:
-                return False,None
+                return False, None
             else:
                 return False
 
@@ -850,9 +875,9 @@ class STN(object):
         for e in self.get_all_edges():
             if not e.fake and not e.distribution:
                 if debug:
-                    print("dealing with edge {}->{}".format(e.i,e.j))
+                    print("dealing with edge {}->{}".format(e.i, e.j))
                 if e.i in self.received_timepoints:
-                    cont_edge = self.get_edge(self.parent[e.i],e.i)
+                    cont_edge = self.get_edge(self.parent[e.i], e.i)
                     i = self.parent[e.i]
                     l_i = cont_edge.get_weight_min()
                     u_i = cont_edge.get_weight_max()
@@ -862,7 +887,7 @@ class STN(object):
                     u_i = 0
 
                 if e.j in self.received_timepoints:
-                    cont_edge = self.get_edge(self.parent[e.j],e.j)
+                    cont_edge = self.get_edge(self.parent[e.j], e.j)
                     j = self.parent[e.j]
                     l_j = cont_edge.get_weight_min()
                     u_j = cont_edge.get_weight_max()
@@ -873,34 +898,32 @@ class STN(object):
 
                 # This is taken from the 1998 paper by Vidal et al. on controllability
                 if debug:
-                    print("Cij: {}  Cji: {}  l_i: {}  u_i: {}  l_j: {}  u_j: {}".format(e.Cij,e.Cji,l_i,u_i,l_j,u_j))
+                    print("Cij: {}  Cji: {}  l_i: {}  u_i: {}  l_j: {}  u_j: {}".format(
+                        e.Cij, e.Cji, l_i, u_i, l_j, u_j))
                 lower_bound = -e.Cji + u_i - l_j
-                upper_bound =  e.Cij + l_i - u_j
+                upper_bound = e.Cij + l_i - u_j
 
-                if (i,j) in new_stn.edges:
-                    new_stn.update_edge(i,j,upper_bound)
-                    new_stn.update_edge(j,i,-lower_bound)
+                if (i, j) in new_stn.edges:
+                    new_stn.update_edge(i, j, upper_bound)
+                    new_stn.update_edge(j, i, -lower_bound)
                     if debug:
-                        print("updated edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
+                        print(
+                            "updated edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
                 else:
                     new_stn.add_edge(i, j, lower_bound, upper_bound)
                     if debug:
-                        print("added edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
-
-
+                        print(
+                            "added edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
 
         new_stn.agents = list(self.agents)
-
-        if debug:
-            print(new_stn)
 
         if returnSTN:
             if new_stn.floydWarshall():
                 for edge in list(new_stn.edges.values()):
-                    stn_copy.update_edge(edge.i,edge.j,edge.Cij)
-                    stn_copy.update_edge(edge.j,edge.i,edge.Cji)
+                    stn_copy.update_edge(edge.i, edge.j, edge.Cij)
+                    stn_copy.update_edge(edge.j, edge.i, edge.Cji)
                 return True, stn_copy
             else:
-                return False,None
+                return False, None
 
         return new_stn.floydWarshall()
