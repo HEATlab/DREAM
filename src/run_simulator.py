@@ -6,7 +6,9 @@ strategy.
 
 
 """
-
+import os
+import os.path
+import sys
 import time
 import multiprocessing
 import argparse
@@ -46,7 +48,8 @@ def main():
         sim_options["threshold_alp"] = args.threshold
 
     # simulate across multiple paths.
-    across_paths(args.stns, args.execution, args.threads, sim_count,
+    stn_paths = folder_harvest(args.stns, recurse=True, only_json=True)
+    across_paths(stn_paths, args.execution, args.threads, sim_count,
                  sim_options,
                  output=args.output,
                  live_updates=(not args.no_live),
@@ -78,6 +81,9 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         reschedules = response_dict["reschedules"]
 
         robustness = results.count(True)/len(results)
+        vert_count = len(stn.verts)
+        cont_dens = len(stn.contingent_edges)/len(stn.edges)
+        synchrony = len(stn.received_timepoints)/len(stn.verts)
 
         results_dict = {}
         results_dict["execution"] = execution
@@ -88,7 +94,9 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["samples"] = sim_count
         results_dict["stn_path"] = path
         results_dict["threshold"] = threshold
-        results_dict["synchronous_density"] = "placeholder"
+        results_dict["synchronous_density"] = synchrony
+        results_dict["vert_count"] = vert_count
+        results_dict["cont_dens"] = cont_dens
         results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
 
         if output is not None:
@@ -108,6 +116,8 @@ def _print_results(results_dict, i, num_paths):
     print("    Robustness: {}".format(results_dict["robustness"]))
     print("    Seed: {}".format(results_dict["random_seed"]))
     print("    Runtime: {}".format(results_dict["runtime"]))
+    print("    Vert Count: {}".format(results_dict["vert_count"]))
+    print("    Cont. Edge Dens.: {}".format(results_dict["cont_dens"]))
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
     print("    Resc. Freq: {}".format(results_dict["reschedule_freq"]))
     print("    Total Progress: {}/{}".format(i, num_paths))
@@ -156,6 +166,54 @@ def _multisim_thread_helper(tup):
     pr.verbose("Assigned Times: {}".format(simulator.get_assigned_times()))
     pr.verbose("Successful?: {}".format(ans))
     return ans, reschedule_count
+
+
+def folder_harvest(folder_paths: list, recurse=True, only_json=True) -> list:
+    """ Retrieves a list of STN filepaths given a list of folderpaths.
+
+    Args:
+        folder_paths (list): List of strings that represent file/folder paths.
+        recursive (:obj:bool, optional): Boolean indicating whether to recurse
+            into directories.
+    Returns:
+        Returns a flat list of STN paths.
+    """
+    stn_files = []
+    for folder_path in folder_paths:
+        if os.path.isfile(folder_path):
+            # Folder was actually a stn file. Just append it.
+            if only_json:
+                _, ext = os.path.splitext(folder_path)
+                if ext == ".json":
+                    stn_files.append(folder_path)
+            else:
+                stn_files.append(folder_path)
+        elif os.path.isdir(folder_path):
+            # This was actually a folder this time!
+            contents = os.listdir(folder_path)
+            for c in contents:
+                # Make sure to include the folder path
+                long_path = folder_path + "/" + c
+                if os.path.isfile(long_path):
+                    if only_json:
+                        _, ext = os.path.splitext(long_path)
+                        if ext == ".json":
+                            stn_files.append(long_path)
+                    else:
+                        stn_files.append(long_path)
+                elif os.path.isdir(long_path) and recurse:
+                    stn_files += folder_harvest([long_path], recurse=True)
+                else:
+                    # This should never happen, but maybe?
+                    pr.warning("STN path was not file or directory: " +
+                               folder_path)
+                    pr.warning("Skipping...")
+        else:
+            # This should never happen, but maybe?
+            pr.warning("STN path was not file or directory: " +
+                       folder_path)
+            pr.warning("Skipping...")
+    return stn_files
 
 def parse_args():
     """Parse the program arguments
