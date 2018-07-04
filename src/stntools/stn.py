@@ -63,6 +63,9 @@ class Vertex(object):
 #  \note distribution is the name of the distribution only
 class Edge(object):
 
+    # How many resamples should we make until we give up?
+    RESAMPLES_UNTIL_QUIT = 100
+
     # \brief Edge Constructor
     #  \param i            The starting node of the edge.
     #  \param j            The ending node of the edge.
@@ -144,10 +147,18 @@ class Edge(object):
         """
         if not self.is_contingent():
             raise TypeError("Cannot sample requirement edge")
-        rand_normal_val = random_state.normal(loc=self.mu, scale=self.sigma)
+        below_zero = True
+        count = 0
+        while below_zero and count < Edge.RESAMPLES_UNTIL_QUIT:
+            rand_normal_val = random_state.normal(loc=self.mu,
+                                                  scale=self.sigma)
+            if rand_normal_val >= 0.0:
+                below_zero = False
+            else:
+                count += 1
         # We have to use integers because of rounding errors.
-        self._sampled_time = int(round(max(rand_normal_val, 0.0)))
-        print("sampled_time: {}".format(self._sampled_time))
+        self._sampled_time = round(max(rand_normal_val, 0.0))
+        return self._sampled_time
 
     def sampled_time(self) -> float:
         """ Gets the sampled time for this contingent edge.
@@ -167,7 +178,7 @@ class Edge(object):
         if len(name_split) != 3:
             raise ValueError("Distribution was not normal:"
                              "{}".format(self.distribution))
-        return int(name_split[1])*1000
+        return float(name_split[1])*1000
 
     @property
     def sigma(self):
@@ -175,7 +186,7 @@ class Edge(object):
         if len(name_split) != 3:
             raise ValueError("Distribution was not normal:"
                              "{}".format(self.distribution))
-        return int(name_split[2])*1000
+        return float(name_split[2])*1000
 ##
 # \class STN
 # \brief A representation of an entire STN.
@@ -619,8 +630,6 @@ class STN(object):
             return 0.0
         if (self.get_edge_weight(0, node_id) !=
                 -self.get_edge_weight(node_id, 0)):
-            print(self.get_edge_weight(0, node_id),
-                  -self.get_edge_weight(node_id, 0))
             return None
         return self.get_edge_weight(0, node_id)
 

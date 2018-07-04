@@ -21,5 +21,5 @@ def vverbose(msg) -> None:
         print("[vv] {}".format(msg))
 
 def warning(msg) -> None:
-    if waringness >= 1:
-        print("[Warning] {}".format(msg))
+    if warningness >= 1:
+        print("[!Warning!]  {}".format(msg))

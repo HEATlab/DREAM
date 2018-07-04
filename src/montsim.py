@@ -5,7 +5,6 @@ import srea
 import functiontimer
 import printers as pr
 
-
 Z_NODE_ID = 0
 
 
@@ -15,9 +14,11 @@ class Simulator(object):
         self.stn = None
         self._current_time = 0.0
 
+        self._rand_seed = random_seed
         self._rand_state = np.random.RandomState(random_seed)
+        self.num_reschedules = 0
 
-    def simulate(self, starting_stn, execution_strat, sim_options={}):
+    def simulate(self, starting_stn, execution_strat, sim_options={}, ):
         ''' Run one simulation.
 
         Args:
@@ -40,6 +41,7 @@ class Simulator(object):
         self._current_time = 0.0
         self.stn = starting_stn.copy()
         self._ar_contingent_event_counter = 0
+        self.num_reschedules = 0
         # Resample the contingent edges.
         # Super important!
         pr.verbose("Resampling Stored STN")
@@ -53,6 +55,8 @@ class Simulator(object):
            options["threshold_si"] = sim_options["threshold_si"]
         if "threshold_ar" in sim_options:
            options["threshold_ar"] = sim_options["threshold_ar"]
+        if "threshold_alp" in sim_options:
+           options["threshold_alp"] = sim_options["threshold_alp"]
 
         # Setup default guide settings
         guide_stn = self.stn
@@ -146,15 +150,32 @@ class Simulator(object):
                                          for edge in incoming_reqs])
             else:
                 sample_time = incoming_contingent.sampled_time()
-                contingent_pred = incoming_contingent.i
-                earliest_time = dispatch.get_assigned_time(contingent_pred) \
-                    + sample_time
+                # Get the contingent edge's predecessor
+                cont_pred = incoming_contingent.i
+                assigned_time = dispatch.get_assigned_time(cont_pred)
+                if assigned_time is None:
+                    # This is an incredibly bizarre edge case that SREA
+                    # sometimes produces: It alters the assigned points to
+                    # an invalid time. One work around is to manually find the
+                    # UPPER bound (not the lower bound), because that appears
+                    # untouched by SREA.
+                    pr.warning("Executed event was not assigned.")
+                    pr.warning("Event was: {}".format(cont_pred))
+                    vert = dispatch.get_vertex(cont_pred)
+                    ex = vert.is_executed()
+                    new_time = dispatch.get_edge_weight(Z_NODE_ID,
+                                                        cont_pred)
+                    msg = "Re-assigned to: {}".format(new_time)
+                    pr.warning(msg)
+                    earliest_time = new_time
+                else:
+                    earliest_time = dispatch.get_assigned_time(cont_pred) \
+                        + sample_time
             # Update the earliest time  now.
             if earliest_so_far_time > earliest_time:
                 earliest_so_far = i
                 earliest_so_far_time = earliest_time
                 has_incoming_contingent = (incoming_contingent is None)
-
         return (earliest_so_far, earliest_so_far_time,
                 has_incoming_contingent)
 
@@ -248,6 +269,11 @@ class Simulator(object):
                                            previous_guide,
                                            options["first_run"],
                                            options["threshold_si"])
+        if execution_strat == "drea-alp":
+            return self._drea_alp_algorithm(previous_alpha,
+                                           previous_guide,
+                                           options["first_run"],
+                                           options["threshold_alp"])
         if execution_strat == "drea-ar":
             if options["executed_contingent"]:
                 self._ar_contingent_event_counter += 1
@@ -277,6 +303,7 @@ class Simulator(object):
     def _srea_algorithm(self, previous_alpha, previous_guide, first_run):
         """ Implements the SREA algorithm. """
         if first_run:
+            self.num_reschedules += 1
             return self._srea_wrapper(previous_alpha, previous_guide)
         # Not our first run, use the previous guide.
         return previous_alpha, previous_guide
@@ -285,7 +312,10 @@ class Simulator(object):
                         executed_contingent):
         """ Implements the DREA algorithm. """
         if first_run or executed_contingent:
-            return self._srea_wrapper(previous_alpha, previous_guide)
+            self.num_reschedules += 1
+            ans = self._srea_wrapper(previous_alpha, previous_guide)
+            pr.verbose("DREA Rescheduled, new alpha: {}".format(ans[0]))
+            return ans
         return previous_alpha, previous_guide
 
     def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
@@ -299,6 +329,7 @@ class Simulator(object):
         new_alpha = result[0]
         maybe_guide = result[1]
         if first_run:
+            self.num_reschedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
 
@@ -311,10 +342,44 @@ class Simulator(object):
         p_0 = (1-previous_alpha)**num_cont
         p_1 = (1-new_alpha)**num_cont
         if p_1 - p_0 > threshold:
+            self.num_reschedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
         else:
             pr.verbose("Did not reschedule, p_0={}, p_1={}".format(p_0, p_1))
+            return previous_alpha, previous_guide
+
+    def _drea_alp_algorithm(self, previous_alpha, previous_guide, first_run,
+                            threshold):
+        """ Implements the DREA alpha difference algorithm, which is an attempt
+        to correct DREA-SI which has a fatal flaw of not rescheduling when
+        contingent events tend to differ.
+        """
+        result = srea.srea(self.stn)
+        # Exit early if the STN was not consistent at all.
+        if result is None:
+            return previous_alpha, previous_guide
+
+        new_alpha = result[0]
+        maybe_guide = result[1]
+        if first_run:
+            self.num_reschedules += 1
+            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
+            return new_alpha, maybe_guide
+
+        # num_cont : Number of remaining unexecuted contingent events
+        num_cont = 0
+        for i in maybe_guide.received_timepoints:
+            if not maybe_guide.get_vertex(i).is_executed():
+                num_cont += 1
+
+        if abs(new_alpha - previous_alpha) > threshold:
+            self.num_reschedules += 1
+            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
+            return new_alpha, maybe_guide
+        else:
+            pr.verbose("Did not reschedule, a0={}, a1={}"
+                       .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide
 
     def _drea_ar_algorithm(self, previous_alpha, previous_guide, first_run,

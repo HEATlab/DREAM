@@ -3,7 +3,7 @@ File for writing a dictionary to
 """
 
 import os.path
-import pandas
+import pandas as pd
 
 
 def save_csv_row(row, to_file):
@@ -13,7 +13,14 @@ def save_csv_row(row, to_file):
         row (dict): Row to write. Keys are the columns.
         to_file (str): File path to write to.
     """
-    df = pd.DataFrame.from_dict(row)
+    list_row = {}
+    for k in row.keys():
+        if not isinstance(row[k], list):
+            list_row[k] = [row[k]]
+        else:
+            list_row[k] = row[k]
+
+    df = pd.DataFrame.from_dict(list_row)
     if os.path.isfile(to_file):
         # File exists, there should also be a header line then.
         df.to_csv(to_file, index=False, header=False, mode='a',

@@ -42,17 +42,21 @@ def main():
         sim_options["threshold_si"] = args.threshold
     elif args.execution == "drea-ar":
         sim_options["threshold_ar"] = args.threshold
+    elif args.execution == "drea-alp":
+        sim_options["threshold_alp"] = args.threshold
 
     # simulate across multiple paths.
     across_paths(args.stns, args.execution, args.threads, sim_count,
                  sim_options,
                  output=args.output,
                  live_updates=(not args.no_live),
-                 random_seed=random_seed)
+                 random_seed=random_seed,
+                 threshold=args.threshold)
 
 
 def across_paths(stn_paths, execution, threads, sim_count, sim_options,
-                 output=None, live_updates=True, random_seed=None):
+                 output=None, live_updates=True, random_seed=None,
+                 threshold=0.0):
     """
     Runs multiple simulations for each STN in the provided iterable.
 
@@ -64,11 +68,14 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         stn = load_stn_from_json_file(path)["stn"]
 
         start_time = time.time()
-        results = multiple_simulations(stn, execution, sim_count,
-                                       threads=threads,
-                                       random_seed=random_seed,
-                                       sim_options=sim_options)
+        response_dict = multiple_simulations(stn, execution, sim_count,
+                                             threads=threads,
+                                             random_seed=random_seed,
+                                             sim_options=sim_options)
         runtime = time.time() - start_time
+
+        results = response_dict["sample_results"]
+        reschedules = response_dict["reschedules"]
 
         robustness = results.count(True)/len(results)
 
@@ -80,8 +87,9 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["runtime"] = runtime
         results_dict["samples"] = sim_count
         results_dict["stn_path"] = path
+        results_dict["threshold"] = threshold
         results_dict["synchronous_density"] = "placeholder"
-        results_dict["reschedule_freq"] = "placeholder"
+        results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
 
         if output is not None:
             sim2csv.save_csv_row(results_dict, output)
@@ -96,6 +104,7 @@ def _print_results(results_dict, i, num_paths):
     print("    Samples: {}".format(results_dict["samples"]))
     print("    Threads: {}".format(results_dict["threads"]))
     print("    Execution: {}".format(results_dict["execution"]))
+    print("    Threshold: {}".format(results_dict["threshold"]))
     print("    Robustness: {}".format(results_dict["robustness"]))
     print("    Seed: {}".format(results_dict["random_seed"]))
     print("    Runtime: {}".format(results_dict["runtime"]))
@@ -110,6 +119,7 @@ def multiple_simulations(starting_stn, execution_strat,
                          sim_options={}):
     # Each thread needs its own simulator, otherwise the progress of one thread
     # can overwrite the progress of another
+    print("Random seed is: {}".format(random_seed))
     if random_seed is not None:
         seed_gen = np.random.RandomState(random_seed)
         seeds = [seed_gen.randint(MAX_SEED) for i in range(count)]
@@ -121,11 +131,20 @@ def multiple_simulations(starting_stn, execution_strat,
                   sim_options)
                  for i in range(count)]
     if threads > 1:
+        print("Using multithreading; threads = {}".format(threads))
         pool = multiprocessing.Pool(threads)
         response = pool.map(_multisim_thread_helper, tasks)
     else:
+        print("Using single thread; threads = {}".format(threads))
         response = list(map(_multisim_thread_helper, tasks))
-    return response
+
+    # Unzip each of the response values.
+    sample_results = [r[0] for r in response]
+    reschedules = [r[1] for r in response]
+    response_dict = {"sample_results": sample_results, "reschedules":
+                     reschedules}
+
+    return response_dict
 
 
 def _multisim_thread_helper(tup):
@@ -133,8 +152,10 @@ def _multisim_thread_helper(tup):
     """
     simulator = tup[0]
     ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
+    reschedule_count = simulator.num_reschedules
     pr.verbose("Assigned Times: {}".format(simulator.get_assigned_times()))
-    return ans
+    pr.verbose("Successful?: {}".format(ans))
+    return ans, reschedule_count
 
 def parse_args():
     """Parse the program arguments
@@ -152,7 +173,8 @@ def parse_args():
                         " 'early'")
     parser.add_argument("-o", "--output", type=str,
                         help="Write the simulation results to a CSV.")
-    parser.add_argument("--threshold", type=float, default=0.1)
+    parser.add_argument("--threshold", type=float, default=0.0,
+                        help="Threshold to use for some algorithms (e.g. AR)")
     parser.add_argument("--seed", default=None, help="Set the random seed")
     parser.add_argument("--no-live", action="store_true",
                         help="Turn off live update printing")
