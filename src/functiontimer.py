@@ -8,7 +8,7 @@ func_start_times = {}
 func_total_times = {}
 
 
-def start_timer(func):
+def start(func):
     """ Start the timer for a function
     Args:
         func: String representing the name of the function.
@@ -16,7 +16,7 @@ def start_timer(func):
     func_start_times[func] = time.time()
 
 
-def stop_timer(func):
+def stop(func):
     time_passed = time.time() - func_start_times[func]
     if func in func_total_times:
         func_total_times[func] += time_passed
@@ -24,7 +24,7 @@ def stop_timer(func):
         func_total_times[func] = time_passed
 
 
-def clear_timer(func):
+def clear(func):
     func_total_times[func] = 0.0
 
 def get_times():
