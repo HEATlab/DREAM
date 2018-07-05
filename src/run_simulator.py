@@ -83,6 +83,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         robustness = results.count(True)/len(results)
         vert_count = len(stn.verts)
         cont_dens = len(stn.contingent_edges)/len(stn.edges)
+        # TODO: Fix synchrony data points
         synchrony = len(stn.received_timepoints)/len(stn.verts)
 
         results_dict = {}
@@ -96,7 +97,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["threshold"] = threshold
         results_dict["synchronous_density"] = synchrony
         results_dict["vert_count"] = vert_count
-        results_dict["cont_dens"] = cont_dens
+        results_dict["contingent_density"] = cont_dens
         results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
 
         if output is not None:
@@ -117,9 +118,9 @@ def _print_results(results_dict, i, num_paths):
     print("    Seed: {}".format(results_dict["random_seed"]))
     print("    Runtime: {}".format(results_dict["runtime"]))
     print("    Vert Count: {}".format(results_dict["vert_count"]))
-    print("    Cont. Edge Dens.: {}".format(results_dict["cont_dens"]))
+    print("    Cont Edge Dens: {}".format(results_dict["contingent_density"]))
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
-    print("    Resc. Freq: {}".format(results_dict["reschedule_freq"]))
+    print("    Resc Freq: {}".format(results_dict["reschedule_freq"]))
     print("    Total Progress: {}/{}".format(i, num_paths))
     print("-"*79)
 
