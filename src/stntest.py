@@ -1,3 +1,7 @@
+"""
+This simply tests the STNs
+"""
+
 import optdecouple
 import stntools
 

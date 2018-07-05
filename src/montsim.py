@@ -70,20 +70,20 @@ class Simulator(object):
 
             # Calculate the guide STN.
             pr.vverbose("Getting Guide...")
-            functiontimer.start_timer("get_guide")
+            functiontimer.start("get_guide")
             current_alpha, guide_stn = self.get_guide(execution_strat,
                                                       current_alpha,
                                                       guide_stn,
                                                       options=options)
-            functiontimer.stop_timer("get_guide")
+            functiontimer.stop("get_guide")
             pr.vverbose("Got guide")
 
             # Select the next timepoint.
             pr.vverbose("Selecting timepoint...")
-            functiontimer.start_timer("selection")
+            functiontimer.start("selection")
             selection = self.select_next_timepoint(guide_stn,
                                                    self._current_time)
-            functiontimer.stop_timer("selection")
+            functiontimer.stop("selection")
             pr.vverbose("Selected timepoint, node_id of {}"
                         .format(selection[0]))
 
@@ -96,14 +96,16 @@ class Simulator(object):
             # Propagate constraints (minimise) and check consistency.
             self.assign_timepoint(guide_stn, next_vert_id, next_time)
             self.assign_timepoint(self.stn, next_vert_id, next_time)
-            consistent = self.propagate_constraints(self.stn.copy())
+            functiontimer.start("propogation & check")
+            stn_copy = self.stn.copy()
+            consistent = self.propagate_constraints(stn_copy)
             if not consistent:
                 pr.verbose("Failed to place point {}, at {}"
                            .format(next_vert_id, next_time))
                 return False
-            pr.vverbose("Propagating our STN")
-            self.propagate_constraints(self.stn)
+            self.stn = stn_copy
             pr.vverbose("Done propagating our STN")
+            functiontimer.stop("propogation & check")
             self._current_time = next_time
         return True
 
@@ -202,9 +204,9 @@ class Simulator(object):
     def propagate_constraints(self, stn_to_prop):
         """ Updates current constraints and minimises
         """
-        functiontimer.start_timer("propogate_constraints")
+        functiontimer.start("propogate_constraints")
         ans = stn_to_prop.floyd_warshall()
-        functiontimer.stop_timer("propogate_constraints")
+        functiontimer.stop("propogate_constraints")
         return ans
 
     def all_assigned(self) -> bool:

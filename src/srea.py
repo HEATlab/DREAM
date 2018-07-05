@@ -7,7 +7,7 @@ import pulp
 from subprocess import Popen,PIPE
 
 from stntools import STN
-from distempirical import normal_invcdf
+from stntools.distempirical import invcdf_norm
 
 ## \file SREA.py
 #
@@ -198,10 +198,10 @@ def srea_LP(inputstn,
 
 
     for (i,j), edge in list(inputstn.contingent_edges.items()):
-        p_ij = normal_invcdf(edge.mu, edge.sigma, one_minus_alpha)
-        p_ji = -normal_invcdf(edge.mu, edge.sigma, alpha)
-        limit_ij = normal_invcdf(edge.mu, edge.sigma, 0.999)
-        limit_ji = -normal_invcdf(edge.mu, edge.sigma, 0.001)
+        p_ij = invcdf_norm(one_minus_alpha, edge.mu, edge.sigma)
+        p_ji = -invcdf_norm(alpha, edge.mu, edge.sigma)
+        limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma)
+        limit_ji = -invcdf_norm(0.003, edge.mu, edge.sigma)
         #p_ij = 1000*invCDF_map[edge.distribution][one_minus_alpha]
         #p_ji = -1000*invCDF_map[edge.distribution][alpha]
         #limit_ij = 1000*invCDF_map[edge.distribution]['1.0']

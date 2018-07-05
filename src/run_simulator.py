@@ -15,6 +15,7 @@ import argparse
 import numpy as np
 
 
+import functiontimer
 from stntools import STN, load_stn_from_json_file
 from montsim import Simulator
 import printers as pr
@@ -255,3 +256,4 @@ def parse_args():
 
 if __name__ == "__main__":
     main()
+    print(functiontimer.get_times())

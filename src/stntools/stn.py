@@ -2,6 +2,8 @@ import math
 import random
 import numpy as np
 
+from .distempirical import norm_sample
+
 # \file stntools.py
 #  \brief tools for working with STNs
 
@@ -147,17 +149,9 @@ class Edge(object):
         """
         if not self.is_contingent():
             raise TypeError("Cannot sample requirement edge")
-        below_zero = True
-        count = 0
-        while below_zero and count < Edge.RESAMPLES_UNTIL_QUIT:
-            rand_normal_val = random_state.normal(loc=self.mu,
-                                                  scale=self.sigma)
-            if rand_normal_val >= 0.0:
-                below_zero = False
-            else:
-                count += 1
+        sample = norm_sample(self.mu, self.sigma, random_state)
         # We have to use integers because of rounding errors.
-        self._sampled_time = round(max(rand_normal_val, 0.0))
+        self._sampled_time = round(sample)
         return self._sampled_time
 
     def sampled_time(self) -> float:
