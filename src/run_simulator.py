@@ -142,8 +142,20 @@ def multiple_simulations(starting_stn, execution_strat,
                  for i in range(count)]
     if threads > 1:
         print("Using multithreading; threads = {}".format(threads))
-        pool = multiprocessing.Pool(threads)
-        response = pool.map(_multisim_thread_helper, tasks)
+        try_count = 0
+        while try_count <= 3:
+            try_count += 1
+            response = None
+            try:
+                with multiprocessing.Pool(threads) as pool:
+                    response = pool.map(_multisim_thread_helper, tasks)
+                break
+            except BlockingIOError:
+                pr.warning("Got BlockingIOError; attempting to remake threads")
+                pr.warning("Retrying in 3 seconds...")
+                time.sleep(3.0)
+                pr.warning("Retrying now")
+
     else:
         print("Using single thread; threads = {}".format(threads))
         response = list(map(_multisim_thread_helper, tasks))
