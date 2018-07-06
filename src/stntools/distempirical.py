@@ -9,8 +9,7 @@ _samples = {}
 _invcdfs = {}
 """Stores a dictionary of the form {key: list of inverse cdf points}"""
 
-
-MAX_RESAMPLE = 5
+MAX_RESAMPLE = 10
 
 def collect_data(rundir):
     pass
