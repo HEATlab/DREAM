@@ -395,8 +395,10 @@ class Simulator(object):
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
-        while (1-previous_alpha)**(n+1) > threshold:
+        attempts = 0  # Absolutely be
+        while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
             n += 1
+            attempts += 1
 
         # Temporary variable to maintain unique names.
         new_counter = contingent_event_counter
