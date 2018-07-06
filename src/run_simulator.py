@@ -83,7 +83,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
 
         robustness = results.count(True)/len(results)
         vert_count = len(stn.verts)
-        cont_dens = len(stn.contingent_edges)/len(stn.edges)
+        cont_dens = len(stn.interagent_edges)/len(stn.edges)
         synchrony = len(stn.received_timepoints)/len(stn.verts)
 
         results_dict = {}
