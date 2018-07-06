@@ -390,6 +390,7 @@ class Simulator(object):
         if first_run:
             result = srea.srea(self.stn)
             if result is not None:
+                self.num_reschedules += 1
                 return result[0], result[1], contingent_event_counter
 
         # n is a placeholder for how much uncertainty we can take.
@@ -406,5 +407,6 @@ class Simulator(object):
                 new_alpha = result[0]
                 maybe_guide = result[1]
                 new_counter = 0
+                self.num_reschedules += 1
                 return new_alpha, maybe_guide, new_counter
         return previous_alpha, previous_guide, new_counter

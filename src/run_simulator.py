@@ -84,8 +84,12 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         robustness = results.count(True)/len(results)
         vert_count = len(stn.verts)
         cont_dens = len(stn.contingent_edges)/len(stn.edges)
-        # TODO: Fix synchrony data points
-        synchrony = len(stn.received_timepoints)/len(stn.verts)
+        synchrony = len(stn.interagent_edges)/len(stn.edges)
+        
+        total_sd = 0 
+        for e in stn.contingent_edges.values():
+            total_sd += e.sigma
+        sd_avg = total_sd / len(stn.contingent_edges)
 
         results_dict = {}
         results_dict["execution"] = execution
@@ -97,6 +101,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["stn_path"] = path
         results_dict["threshold"] = threshold
         results_dict["synchronous_density"] = synchrony
+        results_dict["sd_avg"] = sd_avg
         results_dict["vert_count"] = vert_count
         results_dict["contingent_density"] = cont_dens
         results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
@@ -120,6 +125,7 @@ def _print_results(results_dict, i, num_paths):
     print("    Runtime: {}".format(results_dict["runtime"]))
     print("    Vert Count: {}".format(results_dict["vert_count"]))
     print("    Cont Edge Dens: {}".format(results_dict["contingent_density"]))
+    print("    Cont SD Avg: {}".format(results_dict["sd_avg"]))
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
     print("    Resc Freq: {}".format(results_dict["reschedule_freq"]))
     print("    Total Progress: {}/{}".format(i, num_paths))
