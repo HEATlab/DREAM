@@ -1,4 +1,3 @@
-import random
 import numpy as np
 
 import srea
@@ -52,11 +51,11 @@ class Simulator(object):
         options = {"first_run": True,
                    "executed_contingent": False}
         if "threshold_si" in sim_options:
-           options["threshold_si"] = sim_options["threshold_si"]
+            options["threshold_si"] = sim_options["threshold_si"]
         if "threshold_ar" in sim_options:
-           options["threshold_ar"] = sim_options["threshold_ar"]
+            options["threshold_ar"] = sim_options["threshold_ar"]
         if "threshold_alp" in sim_options:
-           options["threshold_alp"] = sim_options["threshold_alp"]
+            options["threshold_alp"] = sim_options["threshold_alp"]
 
         # Setup default guide settings
         guide_stn = self.stn
@@ -164,7 +163,6 @@ class Simulator(object):
                     pr.warning("Executed event was not assigned.")
                     pr.warning("Event was: {}".format(cont_pred))
                     vert = dispatch.get_vertex(cont_pred)
-                    ex = vert.is_executed()
                     new_time = dispatch.get_edge_weight(Z_NODE_ID,
                                                         cont_pred)
                     msg = "Re-assigned to: {}".format(new_time)
@@ -270,18 +268,21 @@ class Simulator(object):
             return self._drea_si_algorithm(previous_alpha,
                                            previous_guide,
                                            options["first_run"],
+                                           options["executed_contingent"],
                                            options["threshold_si"])
         if execution_strat == "drea-alp":
             return self._drea_alp_algorithm(previous_alpha,
-                                           previous_guide,
-                                           options["first_run"],
-                                           options["threshold_alp"])
+                                            previous_guide,
+                                            options["first_run"],
+                                            options["executed_contingent"],
+                                            options["threshold_alp"])
         if execution_strat == "drea-ar":
             if options["executed_contingent"]:
                 self._ar_contingent_event_counter += 1
             ans = self._drea_ar_algorithm(previous_alpha,
                                           previous_guide,
                                           options["first_run"],
+                                          options["executed_contingent"],
                                           options["threshold_ar"],
                                           self._ar_contingent_event_counter)
             self._ar_contingent_event_counter = ans[2]
@@ -321,7 +322,7 @@ class Simulator(object):
         return previous_alpha, previous_guide
 
     def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
-                           threshold):
+                           executed_contingent, threshold):
         """ Implements the DREA-SI algorithm. """
         result = srea.srea(self.stn)
         # Exit early if the STN was not consistent at all.
@@ -334,6 +335,11 @@ class Simulator(object):
             self.num_reschedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
+
+        # We should only run this algorithm *if* we recently executed
+        # a receieved/contingent timepoint.
+        if not executed_contingent:
+            return previous_alpha, previous_guide
 
         # num_cont : Number of remaining unexecuted contingent events
         num_cont = 0
@@ -352,7 +358,7 @@ class Simulator(object):
             return previous_alpha, previous_guide
 
     def _drea_alp_algorithm(self, previous_alpha, previous_guide, first_run,
-                            threshold):
+                            executed_contingent, threshold):
         """ Implements the DREA alpha difference algorithm, which is an attempt
         to correct DREA-SI which has a fatal flaw of not rescheduling when
         contingent events tend to differ.
@@ -368,6 +374,11 @@ class Simulator(object):
             self.num_reschedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
+
+        # We should only run this algorithm *if* we recently executed
+        # a receieved/contingent timepoint.
+        if not executed_contingent:
+            return previous_alpha, previous_guide
 
         # num_cont : Number of remaining unexecuted contingent events
         num_cont = 0
@@ -385,13 +396,19 @@ class Simulator(object):
             return previous_alpha, previous_guide
 
     def _drea_ar_algorithm(self, previous_alpha, previous_guide, first_run,
-                           threshold, contingent_event_counter):
+                           executed_contingent, threshold,
+                           contingent_event_counter):
         """ Implements the DREA-AR algorithm. """
         if first_run:
             result = srea.srea(self.stn)
             if result is not None:
                 self.num_reschedules += 1
                 return result[0], result[1], contingent_event_counter
+
+        # We should only run this algorithm *if* we recently executed
+        # a receieved/contingent timepoint.
+        if not executed_contingent:
+            return previous_alpha, previous_guide
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
