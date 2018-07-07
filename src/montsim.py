@@ -395,7 +395,7 @@ class Simulator(object):
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
-        attempts = 0  # Absolutely be
+        attempts = 0  # Make sure we can actually escape if threshold = 0
         while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
             n += 1
             attempts += 1
