@@ -11,6 +11,7 @@ class Simulator(object):
     def __init__(self, random_seed=None):
         # Nothing here for now.
         self.stn = None
+        self.assignment_stn = None
         self._current_time = 0.0
 
         self._rand_seed = random_seed
@@ -39,6 +40,7 @@ class Simulator(object):
         # Initial setup
         self._current_time = 0.0
         self.stn = starting_stn.copy()
+        self.assignment_stn = starting_stn.copy()
         self._ar_contingent_event_counter = 0
         self.num_reschedules = 0
         # Resample the contingent edges.
@@ -74,6 +76,8 @@ class Simulator(object):
                                                       current_alpha,
                                                       guide_stn,
                                                       options=options)
+            #print("GUIDE")
+            #print(guide_stn)
             functiontimer.stop("get_guide")
             pr.vverbose("Got guide")
 
@@ -95,7 +99,8 @@ class Simulator(object):
             # Propagate constraints (minimise) and check consistency.
             self.assign_timepoint(guide_stn, next_vert_id, next_time)
             self.assign_timepoint(self.stn, next_vert_id, next_time)
-            functiontimer.start("propogation & check")
+            self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
+            functiontimer.start("propagation & check")
             stn_copy = self.stn.copy()
             consistent = self.propagate_constraints(stn_copy)
             if not consistent:
@@ -104,7 +109,12 @@ class Simulator(object):
                 return False
             self.stn = stn_copy
             pr.vverbose("Done propagating our STN")
-            functiontimer.stop("propogation & check")
+            functiontimer.stop("propagation & check")
+
+            # Clean up the STN
+
+            self.remove_old_timepoints(self.stn)
+
             self._current_time = next_time
         return True
 
@@ -125,12 +135,14 @@ class Simulator(object):
         earliest_so_far_time = float("inf")
         has_incoming_contingent = False
 
+        #print("Selecting...")
+        #print(dispatch)
+
         # This could be sped up. We only want unexecuted verts without parents.
-        for i, vert in enumerate(dispatch.get_all_verts()):
+        for i, vert in dispatch.verts.items():
             # Don't recheck already executed verts
             if vert.is_executed():
                 continue
-
             # Check if all predecessors are executed -> enabled.
             predecessor_ids = [e.i for e in dispatch.get_incoming(i)]
             predecessors = [dispatch.get_vertex(q) for q in predecessor_ids]
@@ -175,7 +187,7 @@ class Simulator(object):
             if earliest_so_far_time > earliest_time:
                 earliest_so_far = i
                 earliest_so_far_time = earliest_time
-                has_incoming_contingent = (incoming_contingent is None)
+                has_incoming_contingent = (incoming_contingent is not None)
         return (earliest_so_far, earliest_so_far_time,
                 has_incoming_contingent)
 
@@ -215,14 +227,18 @@ class Simulator(object):
                 return False
         return True
 
-    def remove_old_timepoints(self) -> None:
+    def remove_old_timepoints(self, stn) -> None:
         """ Remove timepoints which add no new information, as they exist
         entirely in the past, and have no lingering constraints that are not
         already captured.
         """
-        for v_id in range(len(self.stn.get_all_verts())):
-            if self.stn.outgoing_executed(v_id):
-                self.stn.remove_vertex(v_id)
+        stored_keys = list(stn.verts.keys())
+        for v_id in stored_keys:
+            if v_id == 0:
+                continue
+            if (stn.outgoing_executed(v_id) and
+                    stn.get_vertex(v_id).is_executed()):
+                stn.remove_vertex(v_id)
 
     def resample_stored_stn(self) -> None:
         for e in self.stn.contingent_edges.values():
@@ -230,9 +246,9 @@ class Simulator(object):
 
     def get_assigned_times(self) -> dict:
         times = {}
-        for key, v in self.stn.verts.items():
+        for key, v in self.assignment_stn.verts.items():
             if v.is_executed():
-                times[key] = (self.stn.get_assigned_time(key))
+                times[key] = (self.assignment_stn.get_assigned_time(key))
             else:
                 times[key] = (None)
         return times

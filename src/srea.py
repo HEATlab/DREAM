@@ -26,8 +26,6 @@ from stntools.distempirical import invcdf_norm
 
 # \fn addConstraint(constraint,problem)
 #  \brief Adds an LP constraint to the given LP
-
-
 def addConstraint(constraint, problem):
     problem += constraint
     # print 'adding constraint', constraint
@@ -70,9 +68,9 @@ def setUpLP(stn, decouple):
             # ignore edges from z. these edges are implicitly handled with the bounds
             # on the LP variables
             if i != 0 and not decouple:
-                addConstraint(bounds[(j, '+')]-bounds[(i, '-')]
+                    addConstraint(bounds[(j, '+')]-bounds[(i, '-')]
                               <= stn.get_edge_weight(i, j), prob)
-                addConstraint(bounds[(i, '+')]-bounds[(j, '-')]
+                    addConstraint(bounds[(i, '+')]-bounds[(j, '-')]
                               <= stn.get_edge_weight(j, i), prob)
 
             elif i != 0 and (i, j) in stn.interagentEdges:
@@ -217,16 +215,17 @@ def srea_LP(inputstn,
         #limit_ij = 1000*invCDF_map[edge.distribution]['1.0']
         #limit_ji = -1000*invCDF_map[edge.distribution]['0.0']
 
+
         deltas[(i, j)].upBound = limit_ij - p_ij
         deltas[(j, i)].upBound = limit_ji - p_ji
+
 
         # Lund et al. LP (3)
         addConstraint(bounds[(j, '+')] - bounds[(i, '+')]
                       == p_ij + deltas[(i, j)], prob)
         # Lund et al. LP (4)
         addConstraint(bounds[(j, '-')] - bounds[(i, '-')]
-                      == -p_ji - deltas[(j, i)], prob)
-
+                          == -p_ji - deltas[(j, i)], prob)
     # ##
     # Generate the objective function.
     #   Our objective function is SUM delta_ij
@@ -246,10 +245,10 @@ def srea_LP(inputstn,
     # resolvable.  I don't know much about the inner workings of pulp and
     # stack overflow suggested I put in this fix so I did.
     # https://stackoverflow.com/questions/27406858/pulp-solver-error
-    try:
-        prob.solve()
-    except Exception:
-        return None
+    #try:
+    prob.solve()
+    #except Exception:
+        #return None
 
     status = pulp.LpStatus[prob.status]
     if debug:

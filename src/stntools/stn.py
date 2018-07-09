@@ -205,6 +205,7 @@ class STN(object):
         self.parent = {}
 
         self.received_timepoints = []
+        """Holds a list of vertex IDs of received/contingent timepoints"""
 
         # A dictionary of contingent edges in the form
         # {(Node1, Node2): Edge_Object}
@@ -235,6 +236,8 @@ class STN(object):
             if edge.i == 0:
                 toPrint += "Vertex {}: [{}, {}]".format(edge.j,
                                                         -edge.Cji, edge.Cij)
+                if self.get_vertex(j).is_executed():
+                    toPrint += " Ex"
             else:
                 toPrint += "Edge {} => {}: [{}, {}]".format(edge.i, edge.j,
                                                             -edge.Cji, edge.Cij)
@@ -483,13 +486,13 @@ class STN(object):
     # \brief Removes a node from the STP
     #  \param nodeID the ID of the node to be removed
 
-    def removeVertex(self, nodeID):
+    def remove_vertex(self, nodeID):
         if nodeID in self.verts:
             del self.verts[nodeID]
 
             if nodeID in self.received_timepoints:
                 self.received_timepoints.remove(nodeID)
-
+            # Clear edges
             toRemove = []
             for i, j in self.edges:
                 if i == nodeID or j == nodeID:
@@ -503,8 +506,8 @@ class STN(object):
                 if (i, j) in self.requirement_edges:
                     del self.requirement_edges[(i, j)]
 
-            self.tris = [t for t in self.tris
-                         if t.i != nodeID and t.j != nodeID and t.k != nodeID]
+            #self.tris = [t for t in self.tris
+            #             if t.i != nodeID and t.j != nodeID and t.k != nodeID]
 
     ##
     # \fn get_vertex
@@ -643,11 +646,11 @@ class STN(object):
 
         return all(ex)
 
-    def outgoingExecuted(self, nodeID):
+    def outgoing_executed(self, nodeID):
         if not self.verts[nodeID].executed:
             return False
         ex = [self.verts[e.j].executed for e in self.get_all_edges()
-              if e.i == nodeID and not e.fake]
+              if e.i == nodeID]
         return all(ex)
 
     def get_incoming(self, node_id):
@@ -752,13 +755,16 @@ class STN(object):
     # \brief Runs the Floyd-Warshal algorithm on an STN
 
     def floyd_warshall(self, create=False):
-        verts = list(range(len(self.verts)))
-        B = [[self.get_edge_weight(i, j) for j in verts] for i in verts]
-        for k in verts:
-            for i in verts:
-                for j in verts:
-                    B[i][j] = min(B[i][j], B[i][k] + B[k][j])
-                    self.update_edge(i, j, B[i][j], create=create)
+        verts = self.verts
+        B = {}
+        for u in self.verts.keys():
+            for v in self.verts.keys():
+                B[(u, v)] = self.get_edge_weight(u, v)
+        for k in verts.keys():
+            for i in verts.keys():
+                for j in verts.keys():
+                    B[(i, j)] = min(B[(i, j)], B[(i, k)] + B[(k, j)])
+                    self.update_edge(i, j, B[(i, j)], create=create)
 
         for e in self.get_all_edges():
             if e.get_weight_min() > e.get_weight_max():
