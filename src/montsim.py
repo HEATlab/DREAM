@@ -408,7 +408,7 @@ class Simulator(object):
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
         if not executed_contingent:
-            return previous_alpha, previous_guide
+            return previous_alpha, previous_guide, contingent_event_counter
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
