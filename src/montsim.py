@@ -424,12 +424,12 @@ class Simulator(object):
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
         if not executed_contingent:
-            return previous_alpha, previous_guide
+            return previous_alpha, previous_guide, contingent_event_counter
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
-        attempts = 0  # Absolutely be
-        while (1-previous_alpha)**(n+1) > threshold or attempts > 100:
+        attempts = 0  # Make sure we can actually escape if threshold = 0
+        while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
             n += 1
             attempts += 1
 
