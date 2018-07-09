@@ -74,6 +74,8 @@ class Simulator(object):
                                                       current_alpha,
                                                       guide_stn,
                                                       options=options)
+            #print("GUIDE")
+            #print(guide_stn)
             functiontimer.stop("get_guide")
             pr.vverbose("Got guide")
 
@@ -105,6 +107,15 @@ class Simulator(object):
             self.stn = stn_copy
             pr.vverbose("Done propagating our STN")
             functiontimer.stop("propogation & check")
+
+            # Clean up the STN
+
+            self.remove_old_timepoints(self.stn)
+            #self.remove_old_timepoints(guide_stn)
+
+            #print("Original")
+            #print(self.stn)
+
             self._current_time = next_time
         return True
 
@@ -125,12 +136,16 @@ class Simulator(object):
         earliest_so_far_time = float("inf")
         has_incoming_contingent = False
 
+        #print("Selecting...")
+        #print(dispatch)
+
         # This could be sped up. We only want unexecuted verts without parents.
-        for i, vert in enumerate(dispatch.get_all_verts()):
+        for i, vert in dispatch.verts.items():
             # Don't recheck already executed verts
+            #print(vert)
             if vert.is_executed():
                 continue
-
+            #print("Vert {} ...".format(i))
             # Check if all predecessors are executed -> enabled.
             predecessor_ids = [e.i for e in dispatch.get_incoming(i)]
             predecessors = [dispatch.get_vertex(q) for q in predecessor_ids]
@@ -215,14 +230,16 @@ class Simulator(object):
                 return False
         return True
 
-    def remove_old_timepoints(self) -> None:
+    def remove_old_timepoints(self, stn) -> None:
         """ Remove timepoints which add no new information, as they exist
         entirely in the past, and have no lingering constraints that are not
         already captured.
         """
-        for v_id in range(len(self.stn.get_all_verts())):
-            if self.stn.outgoing_executed(v_id):
-                self.stn.remove_vertex(v_id)
+        stored_keys = list(stn.verts.keys())
+        for v_id in stored_keys:
+            if (stn.outgoing_executed(v_id) and
+                    stn.get_vertex(v_id).is_executed()):
+                stn.remove_vertex(v_id)
 
     def resample_stored_stn(self) -> None:
         for e in self.stn.contingent_edges.values():

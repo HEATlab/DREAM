@@ -24,10 +24,10 @@ from stntools.distempirical import invcdf_norm
 #  `sudo pip install pulp` or `sudo easy_install -U pulp`.
 #  THEN RUN `sudo pulptest`, otherwise it won't work.
 
+FIX = True
+
 # \fn addConstraint(constraint,problem)
 #  \brief Adds an LP constraint to the given LP
-
-
 def addConstraint(constraint, problem):
     problem += constraint
     # print 'adding constraint', constraint
@@ -220,12 +220,15 @@ def srea_LP(inputstn,
         deltas[(i, j)].upBound = limit_ij - p_ij
         deltas[(j, i)].upBound = limit_ji - p_ji
 
-        # Lund et al. LP (3)
-        addConstraint(bounds[(j, '+')] - bounds[(i, '+')]
-                      == p_ij + deltas[(i, j)], prob)
-        # Lund et al. LP (4)
-        addConstraint(bounds[(j, '-')] - bounds[(i, '-')]
-                      == -p_ji - deltas[(j, i)], prob)
+        if (not FIX or not inputstn.get_vertex(i).is_executed() or not
+                inputstn.get_vertex(j).is_executed()):
+
+            # Lund et al. LP (3)
+            addConstraint(bounds[(j, '+')] - bounds[(i, '+')]
+                          == p_ij + deltas[(i, j)], prob)
+            # Lund et al. LP (4)
+            addConstraint(bounds[(j, '-')] - bounds[(i, '-')]
+                          == -p_ji - deltas[(j, i)], prob)
 
     # ##
     # Generate the objective function.
