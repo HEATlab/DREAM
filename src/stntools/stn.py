@@ -366,7 +366,6 @@ class STN(object):
     #                     the STN.
 
     def add_edge(self, i, j, Tmin, Tmax, distribution=None):
-        print(i, j)
         newEdge = Edge(i, j, Tmin, Tmax, distribution)
         self.edges[(i, j)] = newEdge
         if distribution != None:
@@ -756,13 +755,16 @@ class STN(object):
     # \brief Runs the Floyd-Warshal algorithm on an STN
 
     def floyd_warshall(self, create=False):
-        verts = list(range(len(self.verts)))
-        B = [[self.get_edge_weight(i, j) for j in verts] for i in verts]
-        for k in verts:
-            for i in verts:
-                for j in verts:
-                    B[i][j] = min(B[i][j], B[i][k] + B[k][j])
-                    self.update_edge(i, j, B[i][j], create=create)
+        verts = self.verts
+        B = {}
+        for u in self.verts.keys():
+            for v in self.verts.keys():
+                B[(u, v)] = self.get_edge_weight(u, v)
+        for k in verts.keys():
+            for i in verts.keys():
+                for j in verts.keys():
+                    B[(i, j)] = min(B[(i, j)], B[(i, k)] + B[(k, j)])
+                    self.update_edge(i, j, B[(i, j)], create=create)
 
         for e in self.get_all_edges():
             if e.get_weight_min() > e.get_weight_max():
