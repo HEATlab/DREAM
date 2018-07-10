@@ -271,28 +271,28 @@ class Simulator(object):
         """
         if execution_strat == "early":
             return 1.0, self.stn
-        if execution_strat == "srea":
+        elif execution_strat == "srea":
             return self._srea_algorithm(previous_alpha,
                                         previous_guide,
                                         options["first_run"])
-        if execution_strat == "drea":
+        elif execution_strat == "drea":
             return self._drea_algorithm(previous_alpha,
                                         previous_guide,
                                         options["first_run"],
                                         options["executed_contingent"])
-        if execution_strat == "drea-si":
+        elif execution_strat == "drea-si":
             return self._drea_si_algorithm(previous_alpha,
                                            previous_guide,
                                            options["first_run"],
                                            options["executed_contingent"],
                                            options["threshold_si"])
-        if execution_strat == "drea-alp":
+        elif execution_strat == "drea-alp":
             return self._drea_alp_algorithm(previous_alpha,
                                             previous_guide,
                                             options["first_run"],
                                             options["executed_contingent"],
                                             options["threshold_alp"])
-        if execution_strat == "drea-ar":
+        elif execution_strat == "drea-ar":
             if options["executed_contingent"]:
                 self._ar_contingent_event_counter += 1
             ans = self._drea_ar_algorithm(previous_alpha,
@@ -340,22 +340,26 @@ class Simulator(object):
     def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
                            executed_contingent, threshold):
         """ Implements the DREA-SI algorithm. """
-        result = srea.srea(self.stn)
         # Exit early if the STN was not consistent at all.
-        if result is None:
-            return previous_alpha, previous_guide
 
-        new_alpha = result[0]
-        maybe_guide = result[1]
         if first_run:
             self.num_reschedules += 1
+            result = srea.srea(self.stn)
+            if result is None:
+                return previous_alpha, previous_guide
+            new_alpha = result[0]
+            maybe_guide = result[1]
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
-
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
         if not executed_contingent:
             return previous_alpha, previous_guide
+        result = srea.srea(self.stn)
+        if result is None:
+            return previous_alpha, previous_guide
+        new_alpha = result[0]
+        maybe_guide = result[1]
 
         # num_cont : Number of remaining unexecuted contingent events
         num_cont = 0
@@ -379,23 +383,25 @@ class Simulator(object):
         to correct DREA-SI which has a fatal flaw of not rescheduling when
         contingent events tend to differ.
         """
-        result = srea.srea(self.stn)
-        # Exit early if the STN was not consistent at all.
-        if result is None:
-            return previous_alpha, previous_guide
-
-        new_alpha = result[0]
-        maybe_guide = result[1]
         if first_run:
             self.num_reschedules += 1
+            result = srea.srea(self.stn)
+            if result is None:
+                return previous_alpha, previous_guide
+            new_alpha = result[0]
+            maybe_guide = result[1]
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
-
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
         if not executed_contingent:
             return previous_alpha, previous_guide
-
+        # We are therefore actually running the algorithm.
+        result = srea.srea(self.stn)
+        if result is None:
+            return previous_alpha, previous_guide
+        new_alpha = result[0]
+        maybe_guide = result[1]
         # num_cont : Number of remaining unexecuted contingent events
         num_cont = 0
         for i in maybe_guide.received_timepoints:
