@@ -18,12 +18,44 @@ def main():
             full_df = pd.read_csv(f, header=0)
         else:
             df = pd.read_csv(f, header=0)
-            full_df = full_df.append(df)
-    #plot_robustness(full_df)
-    plot_reschedule(full_df)
+            full_df = full_df.append(df, ignore_index=True)
+
+    # Filter the samples
+    full_df = framefilters(full_df)
+    if args.robustness:
+        clinic_si_threshold(full_df)
+        clinic_ar_threshold(full_df)
+        #plot_robustness(full_df, plot_type=args.type)
+    elif args.reschedules:
+        plot_reschedule(full_df, plot_type=args.type)
 
 
-def plot_robustness(df):
+def framefilters(df):
+    df = clearzero(df)
+    return df[df.samples > 100]
+
+
+def clearzero(df):
+    unique_stns = df.drop_duplicates(subset="stn_path")
+    to_remove = []
+    for _, row in unique_stns.iterrows():
+        stn_path = row["stn_path"]
+        runs = df.loc[df["stn_path"] == stn_path]
+        all_zero = True
+        for _, run in runs.iterrows():
+            if not all_zero:
+                break
+            all_zero = run["robustness"] <= 0.0
+        if all_zero:
+            to_remove.append(stn_path)
+    for path in to_remove:
+        indices = df.loc[df["stn_path"] == path]
+        common = df.merge(indices, on=['stn_path'])
+        df = df[~df.stn_path.isin(common.stn_path)]
+    return df
+
+
+def plot_robustness(df, plot_type="box"):
     early = df.loc[df['execution'] == "early"]
     srea = df.loc[df['execution'] == "srea"]
     drea = df.loc[df['execution'] == "drea"]
@@ -31,19 +63,200 @@ def plot_robustness(df):
     drea_si = df.loc[df['execution'] == "drea-si"]
     drea_ar = df.loc[df['execution'] == "drea-ar"]
 
-    early_rob = early["robustness"].tolist()
-    srea_rob = srea["robustness"].tolist()
-    drea_rob = drea["robustness"].tolist()
-    drea_alp_rob = drea_alp["robustness"].tolist()
-    drea_si_rob = drea_si["robustness"].tolist()
-    drea_ar_rob = drea_ar["robustness"].tolist()
+    early_rob = early["robustness"]
+    srea_rob = srea["robustness"]
+    drea_rob = drea["robustness"]
+    drea_alp_rob = drea_alp["robustness"]
+    drea_si_rob = drea_si["robustness"]
+    drea_ar_rob = drea_ar["robustness"]
 
-    plt.boxplot((early_rob, srea_rob, drea_rob))
-    #plt.bar(range(3), (early_rob.mean(), srea_rob.mean(), drea_rob.mean()))
+    if plot_type == "box":
+        plt.boxplot((early_rob.tolist(), srea_rob.tolist(), drea_rob.tolist()))
+    elif plot_type == "bar":
+        plt.bar(range(3), early_rob.mean(), srea_rob.mean(), drea_rob.mean())
+    elif plot_type == "line":
+        thresholds = [0.0, 0.25, 0.5, 0.75, 1.0]
+        # SI
+        rob_means = []
+        rob_sd = []
+        for i in thresholds:
+            i_drea_si = drea_si.loc[drea_si["threshold"] == i]
+            n = sum(i_drea_si["samples"])
+            p = sum(i_drea_si["samples"] * i_drea_si["robustness"])\
+                    / n
+            sem = (p*(1-p)/n)**0.5
+
+            rob_means.append(p)
+            rob_sd.append(sem)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
+                     linewidth=1)
+        # ALP
+        rob_means = []
+        rob_sd = []
+        for i in thresholds:
+            i_drea_alp = drea_alp.loc[drea_si["threshold"] == i]
+            n = sum(i_drea_alp["samples"])
+            p = sum(i_drea_alp["samples"] * i_drea_alp["robustness"])\
+                    / n
+            sem = (p*(1-p)/n)**0.5
+
+            rob_means.append(p)
+            rob_sd.append(sem)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
+                     linewidth=1)
+        # AR
+        rob_means = []
+        rob_sd = []
+        for i in thresholds:
+            i_drea_ar = drea_ar.loc[drea_si["threshold"] == i]
+            n = sum(i_drea_ar["samples"])
+            p = sum(i_drea_ar["samples"] * i_drea_ar["robustness"])\
+                    / n
+            sem = (p*(1-p)/n)**0.5
+
+            rob_means.append(p)
+            rob_sd.append(sem)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
+                     linewidth=1)
+
+        plt.plot(thresholds, np.full(5, drea_rob.mean()))
+        plt.plot(thresholds, np.full(5, srea_rob.mean()))
     plt.show()
 
 
-def plot_reschedule(df):
+def clinic_si_threshold(df):
+    srea = df.loc[df['execution'] == "srea"]
+    drea = df.loc[df['execution'] == "drea"]
+    drea_alp = df.loc[df['execution'] == "drea-alp"]
+    drea_si = df.loc[df['execution'] == "drea-si"]
+    drea_ar = df.loc[df['execution'] == "drea-ar"]
+    early = df.loc[df['execution'] == 'early']
+
+    srea_rob = srea["robustness"]
+    early_rob = early["robustness"]
+    drea_rob = drea["robustness"]
+    drea_alp_rob = drea_alp["robustness"]
+    drea_si_rob = drea_si["robustness"]
+    drea_ar_rob = drea_ar["robustness"]
+
+    thresholds = [0.0, 0.25, 0.5, 0.75, 1.0]
+    drea_p = sum(drea["samples"]*drea["robustness"]) / sum(drea["samples"])
+    drea_res = drea["reschedule_freq"].mean()
+    drea_run = drea["runtime"].mean()
+
+    # SI
+    rob_means = []
+    rob_sd = []
+    res = []
+    runs = []
+    for i in thresholds:
+        i_drea_si = drea_si.loc[drea_si["threshold"] == i]
+        n = sum(i_drea_si["samples"])
+        p = sum(i_drea_si["samples"] * i_drea_si["robustness"])\
+                / n
+        sem = (p*(1-p)/n)**0.5
+        rob_means.append((1 - p/drea_p)*100)
+        rob_sd.append(sem)
+        res.append((1 - i_drea_si["reschedule_freq"].mean()/drea_res)*100)
+        runs.append((1 - i_drea_si["runtime"].mean()/drea_run)*100)
+
+    plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-', capsize=4,
+                 linewidth=1, label="SI Empirical Success Rate (%)")
+    plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+             label="SI Number of Reschedules")
+    plt.plot(thresholds, runs, linestyle=':', linewidth=1,
+             label="SI Runtime")
+
+    # ALP
+    rob_means = []
+    rob_sd = []
+    res = []
+    runs = []
+    for i in thresholds:
+        i_drea_alp = drea_alp.loc[drea_alp["threshold"] == i]
+        n = sum(i_drea_alp["samples"])
+        p = sum(i_drea_alp["samples"] * i_drea_alp["robustness"])\
+                / n
+        sem = (p*(1-p)/n)**0.5
+        rob_means.append((1 - p/drea_p)*100)
+        rob_sd.append(sem)
+        res.append((1 - i_drea_alp["reschedule_freq"].mean()/drea_res)*100)
+        runs.append((1 - i_drea_alp["runtime"].mean()/drea_run)*100)
+
+    plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-', capsize=4,
+                 linewidth=1, label="ALPHA Empirical Success Rate (%)")
+    plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+             label="ALPHA Number of Reschedules")
+    plt.plot(thresholds, runs, linestyle=':', linewidth=1,
+             label="ALPHA Runtime")
+
+    plt.ylim(-40, 100)
+    plt.xlim(0, 1)
+    plt.legend(loc="lower center")
+    plt.xlabel("Sufficient Improvement Threshold")
+    plt.ylabel("Percent Reduction from DREA")
+    plt.title("Trade-offs Between Communication and Performance in SI")
+    #plt.plot(thresholds, np.full(5, drea_rob.mean()))
+    #plt.plot(thresholds, np.full(5, srea_rob.mean()))
+
+    plt.show()
+
+
+def clinic_ar_threshold(df):
+    srea = df.loc[df['execution'] == "srea"]
+    drea = df.loc[df['execution'] == "drea"]
+    drea_ar = df.loc[df['execution'] == "drea-ar"]
+    early = df.loc[df['execution'] == 'early']
+
+    srea_rob = srea["robustness"]
+    early_rob = early["robustness"]
+    drea_rob = drea["robustness"]
+    drea_ar_rob = drea_ar["robustness"]
+
+    thresholds = [0.0, 0.25, 0.5, 0.75, 1.0]
+    drea_p = sum(drea["samples"]*drea["robustness"]) / sum(drea["samples"])
+    drea_res = drea["reschedule_freq"].mean()
+    drea_run = drea["runtime"].mean()
+
+    # AR
+    rob_means = []
+    rob_e = []
+    res = []
+    res_e = []
+    runs = []
+    runs_e = []
+    for i in thresholds:
+        i_drea_ar = drea_ar.loc[drea_ar["threshold"] == i]
+        n = sum(i_drea_ar["samples"])
+        p = sum(i_drea_ar["samples"] * i_drea_ar["robustness"])\
+                / n
+        sem = ((p*(1-p)/n)**0.5)*100
+        rob_means.append((1-i_drea_ar["robustness"].mean()/drea_rob.mean())
+                         *100)
+        #rob_means.append((1 - p/drea_p)*100)
+        rob_e.append(i_drea_ar["robustness"].sem()*100)
+        res.append((1 - i_drea_ar["reschedule_freq"].mean()/drea_res)*100)
+        res_e.append(i_drea_ar["reschedule_freq"].sem()*100)
+        runs.append((1 - i_drea_ar["runtime"].mean()/drea_run)*100)
+        runs_e.append(i_drea_ar["runtime"].sem()*100)
+
+    plt.errorbar(thresholds, rob_means, yerr=rob_e, linestyle='-', capsize=3,
+                 linewidth=1, label="Empirical Success Rate (%)")
+    plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+             label="Number of Reschedules")
+    plt.plot(thresholds, runs, linestyle=':', linewidth=1, label="Runtime")
+
+    plt.ylim(-40, 100)
+    plt.xlim(0, 1)
+    plt.legend(loc="lower center")
+    plt.xlabel("Allowable Risk Threshold")
+    plt.ylabel("Percent Reduction from DREA")
+    plt.title("Trade-offs Between Communication and Performance in AR")
+
+    plt.show()
+
+
+def plot_reschedule(df, plot_type="box"):
     drea = df.loc[df['execution'] == "drea"]
     drea_alp = df.loc[df['execution'] == "drea-alp"]
     drea_si = df.loc[df['execution'] == "drea-si"]
@@ -56,7 +269,7 @@ def plot_reschedule(df):
     y_d = [res]*len(x_d)
     ax.plot(x_d, y_d, "k--")
 
-    thresholds = (0.0, 0.3, 0.5, 0.7, 1.0)
+    thresholds = (0.0, 0.25, 0.5, 0.75, 1.0)
     # boxplot offsets
     plot_off = 0.035
 
@@ -116,6 +329,9 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(prog='Plotter')
     parser.add_argument('file', nargs="+", type=str, help='Files to plot')
+    parser.add_argument("-r", "--robustness", action="store_true")
+    parser.add_argument("-s", "--reschedules", action="store_true")
+    parser.add_argument("--type", type=str, help="Plot type, (e.g. line, box)")
     return parser.parse_args()
 
 
