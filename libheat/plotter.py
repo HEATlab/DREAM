@@ -21,7 +21,10 @@ def main():
             full_df = full_df.append(df, ignore_index=True)
 
     # Filter the samples
+    print("Before: {}".format(full_df["robustness"].mean()))
     full_df = framefilters(full_df)
+    print("After: {}".format(full_df["robustness"].mean()))
+
     if args.robustness:
         clinic_si_threshold(full_df)
         clinic_ar_threshold(full_df)

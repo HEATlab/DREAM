@@ -1,7 +1,7 @@
 import pulp
 
 
-from stntools import STN, Edge
+from .stntools import STN, Edge
 
 
 def optimal_decouple_agents(stn):

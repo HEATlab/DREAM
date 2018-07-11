@@ -1,8 +1,8 @@
 import numpy as np
 
-import srea
-import functiontimer
-import printers as pr
+from . import srea
+from . import functiontimer
+from . import printers as pr
 
 Z_NODE_ID = 0
 
@@ -18,7 +18,7 @@ class Simulator(object):
         self._rand_state = np.random.RandomState(random_seed)
         self.num_reschedules = 0
 
-    def simulate(self, starting_stn, execution_strat, sim_options={}, ):
+    def simulate(self, starting_stn, execution_strat, sim_options={}):
         ''' Run one simulation.
 
         Args:
@@ -104,6 +104,7 @@ class Simulator(object):
             stn_copy = self.stn.copy()
             consistent = self.propagate_constraints(stn_copy)
             if not consistent:
+                pr.verbose("Assignments: " + str(self.get_assigned_times()))
                 pr.verbose("Failed to place point {}, at {}"
                            .format(next_vert_id, next_time))
                 return False
@@ -116,6 +117,8 @@ class Simulator(object):
             self.remove_old_timepoints(self.stn)
 
             self._current_time = next_time
+        pr.verbose("Assignments: " + str(self.get_assigned_times()))
+        pr.verbose("Successful!")
         return True
 
     def select_next_timepoint(self, dispatch, current_time):

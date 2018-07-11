@@ -1,7 +1,7 @@
 import pulp
 
 
-import stn
+from .stntools import STN
 
 
 Z_VERT_ID = 0

@@ -15,11 +15,11 @@ import argparse
 import numpy as np
 
 
-import functiontimer
-from stntools import STN, load_stn_from_json_file
-from montsim import Simulator
-import printers as pr
-import sim2csv
+from libheat import functiontimer
+from libheat.stntools import STN, load_stn_from_json_file
+from libheat.montsim import Simulator
+import libheat.printers as pr
+from libheat import sim2csv
 
 
 MAX_SEED = 2**32
@@ -85,8 +85,8 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         vert_count = len(stn.verts)
         cont_dens = len(stn.contingent_edges)/len(stn.edges)
         synchrony = len(stn.interagent_edges)/len(stn.edges)
-        
-        total_sd = 0 
+
+        total_sd = 0
         for e in stn.contingent_edges.values():
             total_sd += e.sigma
         sd_avg = total_sd / len(stn.contingent_edges)

@@ -7,8 +7,8 @@ import argparse
 import pulp
 from subprocess import Popen, PIPE
 
-from stntools import STN
-from stntools.distempirical import invcdf_norm
+from .stntools import STN
+from .stntools.distempirical import invcdf_norm
 
 # \file SREA.py
 #
@@ -196,7 +196,7 @@ def srea_LP(inputstn,
         raise TypeError("inputstn is not of type STN")
 
     alpha = round(float(alpha), 3)
-    one_minus_alpha = round(1-float(alpha), 3)
+    #one_minus_alpha = round(1-float(alpha), 3)
 
     if probContainer is None:
         if debug:
@@ -206,8 +206,8 @@ def srea_LP(inputstn,
         bounds, deltas, prob = probContainer
 
     for (i, j), edge in list(inputstn.contingent_edges.items()):
-        p_ij = invcdf_norm(one_minus_alpha, edge.mu, edge.sigma)
-        p_ji = -invcdf_norm(alpha, edge.mu, edge.sigma)
+        p_ij = invcdf_norm(1.0-alpha*0.5, edge.mu, edge.sigma)
+        p_ji = -invcdf_norm(alpha*0.5, edge.mu, edge.sigma)
         limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma)
         limit_ji = -invcdf_norm(0.003, edge.mu, edge.sigma)
         #p_ij = 1000*invCDF_map[edge.distribution][one_minus_alpha]

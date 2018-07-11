@@ -1,7 +1,8 @@
 import random
 import numpy as np
 from scipy.stats import norm
-import functiontimer
+
+import libheat.functiontimer as functiontimer
 
 # These variables should never be imported from this file.
 _samples = {}
@@ -160,3 +161,7 @@ def invcdf_norm(val: float, mu: float, sigma: float, res=1000, neg=False):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+    import matplotlib.pyplot as plt
+    curve = invcdf_norm_curve(5, 1)
+    plt.plot(curve[0], curve[1])
+    plt.show()
