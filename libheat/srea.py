@@ -50,12 +50,14 @@ def setUpLP(stn, decouple):
     # ##
 
     for i in stn.verts:
-        bounds[(i, '+')] = pulp.LpVariable('t_%d_hi' % i, lowBound=None,
+        bounds[(i, '+')] = pulp.LpVariable('t_%d_hi' % i,
+                                           lowBound=-stn.get_edge_weight(i, 0),
                                            upBound=stn.get_edge_weight(0, i))
-
-        bounds[(i, '-')] = pulp.LpVariable('t_%d_lo' % i, lowBound=-stn.get_edge_weight(i, 0),
-                                           upBound=None)
-        addConstraint(bounds[(i, '+')] >= bounds[(i, '-')], prob)
+        bounds[(i, '-')] = pulp.LpVariable('t_%d_lo' % i,
+                                           lowBound=-stn.get_edge_weight(i, 0),
+                                           upBound=stn.get_edge_weight(0, i))
+        condition = bounds[(i, '+')] >= bounds[(i, '-')]
+        addConstraint(condition, prob)
 
     for i, j in stn.edges:
         if (i, j) in stn.contingent_edges:
@@ -78,7 +80,6 @@ def setUpLP(stn, decouple):
                               <= stn.get_edge_weight(i, j), prob)
                 addConstraint(bounds[(i, '+')]-bounds[(j, '-')]
                               <= stn.get_edge_weight(j, i), prob)
-
     return (bounds, deltas, prob)
 
 
@@ -256,7 +257,6 @@ def srea_LP(inputstn,
         # Each of the variables is printed with it's resolved optimum value
         for v in prob.variables():
             print(v.name, '=', v.varValue)
-
     if status != 'Optimal':
         return None
     return bounds

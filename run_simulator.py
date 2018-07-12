@@ -41,12 +41,9 @@ def main():
     sim_count = args.samples
 
     sim_options = {}
-    if args.execution == "drea-si":
-        sim_options["threshold_si"] = args.threshold
-    elif args.execution == "drea-ar":
-        sim_options["threshold_ar"] = args.threshold
-    elif args.execution == "drea-alp":
-        sim_options["threshold_alp"] = args.threshold
+    sim_options["ar_threshold"] = args.ar_threshold
+    sim_options["alp_threshold"] = args.si_threshold
+    sim_options["si_threshold"] = args.si_threshold
 
     # simulate across multiple paths.
     stn_paths = folder_harvest(args.stns, recurse=True, only_json=True)
@@ -54,18 +51,23 @@ def main():
                  sim_options,
                  output=args.output,
                  live_updates=(not args.no_live),
-                 random_seed=random_seed,
-                 threshold=args.threshold)
+                 random_seed=random_seed)
 
 
 def across_paths(stn_paths, execution, threads, sim_count, sim_options,
-                 output=None, live_updates=True, random_seed=None,
-                 threshold=0.0):
-    """
-    Runs multiple simulations for each STN in the provided iterable.
+                 output=None, live_updates=True, random_seed=None):
+    """Runs multiple simulations for each STN in the provided iterable.
 
     Args:
-        stn_paths:
+        stn_paths (iterable): iterable (like a List) of strings.
+        execution (str): Execution strategy to use on each STN.
+        threads (int): Number of threads to use.
+        sim_count (int): Number of simulations (samples) to use.
+        sim_options (dict): Dictionary of simulation options to use.
+        output (str, optional): Output file path. Default no output.
+        live_updates (boolean, optional): Whether to provide live updates.
+        random_seed (int, optional): The random seed to start out with,
+            defaults to a random... random seed.
     """
     num_paths = len(stn_paths)
     for i, path in enumerate(stn_paths):
@@ -80,6 +82,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
 
         results = response_dict["sample_results"]
         reschedules = response_dict["reschedules"]
+        sent_schedules = response_dict["sent_schedules"]
 
         robustness = results.count(True)/len(results)
         vert_count = len(stn.verts)
@@ -98,13 +101,16 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["random_seed"] = random_seed
         results_dict["runtime"] = runtime
         results_dict["samples"] = sim_count
+        results_dict["timestamp"] = time.time()
         results_dict["stn_path"] = path
-        results_dict["threshold"] = threshold
+        results_dict["ar_threshold"] = sim_options["ar_threshold"]
+        results_dict["si_threshold"] = sim_options["si_threshold"]
         results_dict["synchronous_density"] = synchrony
         results_dict["sd_avg"] = sd_avg
         results_dict["vert_count"] = vert_count
         results_dict["contingent_density"] = cont_dens
         results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
+        results_dict["send_freq"] = sum(sent_schedules)/len(sent_schedules)
 
         if output is not None:
             sim2csv.save_csv_row(results_dict, output)
@@ -114,12 +120,15 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
 
 
 def _print_results(results_dict, i, num_paths):
+    """Pretty print the results of N samples of simulation"""
     print("-"*79)
     print("    Ran on: {}".format(results_dict["stn_path"]))
+    print("    Timestamp: {}".format(results_dict["timestamp"]))
     print("    Samples: {}".format(results_dict["samples"]))
     print("    Threads: {}".format(results_dict["threads"]))
     print("    Execution: {}".format(results_dict["execution"]))
-    print("    Threshold: {}".format(results_dict["threshold"]))
+    print("    AR Threshold: {}".format(results_dict["ar_threshold"]))
+    print("    SI Threshold: {}".format(results_dict["si_threshold"]))
     print("    Robustness: {}".format(results_dict["robustness"]))
     print("    Seed: {}".format(results_dict["random_seed"]))
     print("    Runtime: {}".format(results_dict["runtime"]))
@@ -128,6 +137,7 @@ def _print_results(results_dict, i, num_paths):
     print("    Cont SD Avg: {}".format(results_dict["sd_avg"]))
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
     print("    Resc Freq: {}".format(results_dict["reschedule_freq"]))
+    print("    Send Freq: {}".format(results_dict["send_freq"]))
     print("    Total Progress: {}/{}".format(i, num_paths))
     print("-"*79)
 
@@ -171,9 +181,10 @@ def multiple_simulations(starting_stn, execution_strat,
     # Unzip each of the response values.
     sample_results = [r[0] for r in response]
     reschedules = [r[1] for r in response]
+    sent_schedules = [r[2] for r in response]
+    # Package the response into a nice dict to send back.
     response_dict = {"sample_results": sample_results, "reschedules":
-                     reschedules}
-
+                     reschedules, "sent_schedules": sent_schedules}
     return response_dict
 
 
@@ -183,9 +194,10 @@ def _multisim_thread_helper(tup):
     simulator = tup[0]
     ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
     reschedule_count = simulator.num_reschedules
+    sent_count = simulator.num_sent_schedules
     pr.verbose("Assigned Times: {}".format(simulator.get_assigned_times()))
     pr.verbose("Successful?: {}".format(ans))
-    return ans, reschedule_count
+    return ans, reschedule_count, sent_count
 
 
 def folder_harvest(folder_paths: list, recurse=True, only_json=True) -> list:
@@ -235,6 +247,7 @@ def folder_harvest(folder_paths: list, recurse=True, only_json=True) -> list:
             pr.warning("Skipping...")
     return stn_files
 
+
 def parse_args():
     """Parse the program arguments
     """
@@ -251,8 +264,10 @@ def parse_args():
                         " 'early'")
     parser.add_argument("-o", "--output", type=str,
                         help="Write the simulation results to a CSV.")
-    parser.add_argument("--threshold", type=float, default=0.0,
-                        help="Threshold to use for some algorithms (e.g. AR)")
+    parser.add_argument("--ar-threshold", type=float, default=0.0,
+                        help="AR Threshold to use for AR and ARSI")
+    parser.add_argument("--si-threshold", type=float, default=0.0,
+                        help="SI Threshold to use for SI, ALP and ARSI")
     parser.add_argument("--seed", default=None, help="Set the random seed")
     parser.add_argument("--no-live", action="store_true",
                         help="Turn off live update printing")

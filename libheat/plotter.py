@@ -21,10 +21,10 @@ def main():
             full_df = full_df.append(df, ignore_index=True)
 
     # Filter the samples
-    print("Before: {}".format(full_df["robustness"].mean()))
     full_df = framefilters(full_df)
-    print("After: {}".format(full_df["robustness"].mean()))
-
+    robustness_v_synchrony(full_df, errorbars=False)
+    return
+    #robustness_v_sd(full_df)
     if args.robustness:
         clinic_si_threshold(full_df)
         clinic_ar_threshold(full_df)
@@ -34,8 +34,16 @@ def main():
 
 
 def framefilters(df):
+    # Add the synchrony column, extracted from the file name.
+    sync_column = []
+    for i, row in df.iterrows():
+        foldername = row["stn_path"].split("/")[-2]
+        synchrony = float(foldername.split("_")[4][1:])*0.001
+        sync_column.append(synchrony)
+    df = df.assign(sync_deg=pd.Series(sync_column))
+    # Remove zeros present in the data.
     df = clearzero(df)
-    return df[df.samples > 100]
+    return df[df.samples >= 100]
 
 
 def clearzero(df):
@@ -119,11 +127,122 @@ def plot_robustness(df, plot_type="box"):
 
             rob_means.append(p)
             rob_sd.append(sem)
-        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
-                     linewidth=1)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=3,
+                     linewidth=0)
 
-        plt.plot(thresholds, np.full(5, drea_rob.mean()))
+        plt.plot(thresholds, np.full(4, drea_rob.mean()))
         plt.plot(thresholds, np.full(5, srea_rob.mean()))
+    plt.show()
+
+
+def sd_v_robust(df):
+    """Plot Standard Deviation of Contingent Edges vs. Performance
+        Produces a scatterplot.
+
+    X axis: Mean of the standard deviations of the edges present.
+    Y axis: Robustness
+
+    Args:
+        df (DataFrame): DataFrame of results to be passed. Must have a
+            "sd_avg" column.
+    """
+    early = df.loc[df['execution'] == "early"]
+    srea = df.loc[df['execution'] == "srea"]
+    drea = df.loc[df['execution'] == "drea"]
+
+    early_rob = early["robustness"]
+    srea_rob = srea["robustness"]
+    drea_rob = drea["robustness"]
+
+    plt.scatter(early["sd_avg"].tolist(), early_rob.tolist(),
+                alpha=0.2,
+                label="Early")
+    plt.scatter(srea["sd_avg"].tolist(), srea_rob.tolist(),
+                alpha=0.2,
+                label="SREA")
+    plt.scatter(drea["sd_avg"].tolist(), drea_rob.tolist(),
+                alpha=0.2,
+                label="DREA")
+    plt.legend()
+    plt.ylabel("Robustness")
+    plt.xlabel("Standard Deviation of Contingent Edges")
+    plt.title("Edge Standard Deviation vs. Performance")
+    plt.show()
+
+
+def synch_v_robust(df, errorbars=True, executions=None, thresholds=None):
+    """Plot Sychronisation vs. Performance
+
+    X axis: Degree of Synchronisation
+    Y axis: Robustness (in percent)
+
+    Error bars: Standard error extracted from the robustnesses of the STNs.
+        Each STN is considered a datum.
+
+    Args:
+        df (DataFrame): DataFrame of results to be passed. Must have a
+            "sync_deg" column.
+        errorbars (boolean, optional): Should the plot have error bars? Default
+            True
+        executions (list, optional): List of strings of execution strats to
+            plot. Default ["early", "srea", "drea"]
+        thresholds (list, optional): List of floats of threshold values to
+            plot. Default [0.0, 0.5, 1.0]
+    """
+    # Executions we care about.
+    if executions is None:
+        executions = ["early", "srea", "drea"]
+    if thresholds is None:
+        thresholds = [0.0, 0.5, 1.0]
+    # Make use of that degree of synchrony we added in framefilters()
+    x_values = sorted(df["sync_deg"].unique().tolist())
+    # Store y values. Is of the format {execution: list of y values}
+    data_y = {}
+    # Store error bars. Is of the format {execution: list of error bars}
+    data_err = {}
+    # Iterate through every execution strategy we care about.
+    for ex in executions:
+        runs = df.loc[df["execution"] == ex]
+        for x in x_values:
+            run_deg = runs.loc[runs["sync_deg"] == x]
+            if ex != "drea-si" and ex != "drea-ar":
+                run_series = run_deg["robustness"]  # Get robustness.
+                mean = run_series.mean()
+                err = run_series.sem()  # Standard error bar.
+                if ex in data_y:
+                    data_y[ex].append(mean*100)
+                    data_err[ex].append(err*100)
+                else:
+                    data_y[ex] = [mean*100]
+                    data_err[ex] = [err*100]
+            else:
+                for t in thresholds:
+                    thresh_series = run_deg.loc[run_deg["threshold"]
+                                                == t]["robustness"]
+                    mean = thresh_series.mean()
+                    err = thresh_series.sem()
+                    label = ex + "_" + str(t)  # Make a unique label for each
+                    if label in data_y:
+                        data_y[label].append(mean*100)
+                        data_err[label].append(err*100)
+                    else:
+                        data_y[label] = [mean*100]
+                        data_err[label] = [err*100]
+    linestyles = ["-", "--", ":", "-."]
+    for i, label in enumerate(data_y.keys()):
+        if errorbars:
+            plt.errorbar(x_values, data_y[label], yerr=data_err[label],
+                         linewidth=1, label=label, capsize=3,
+                         linestyle=linestyles[i % len(linestyles)])
+        else:
+            plt.plot(x_values, data_y[label], linewidth=1, label=label,
+                         linestyle=linestyles[i % len(linestyles)])
+    plt.ylim(0, 100)
+    plt.xlim(0, 25)
+    plt.legend()
+    plt.ylabel("Robustness (%)")
+    plt.xlabel("Degree of Synchronization (sec)")
+    plt.title("Degree of Synchronization vs. Performance")
     plt.show()
 
 

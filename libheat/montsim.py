@@ -17,6 +17,7 @@ class Simulator(object):
         self._rand_seed = random_seed
         self._rand_state = np.random.RandomState(random_seed)
         self.num_reschedules = 0
+        self.num_sent_schedules = 0
 
     def simulate(self, starting_stn, execution_strat, sim_options={}):
         ''' Run one simulation.
@@ -43,6 +44,7 @@ class Simulator(object):
         self.assignment_stn = starting_stn.copy()
         self._ar_contingent_event_counter = 0
         self.num_reschedules = 0
+        self.num_sent_schedules = 0
         # Resample the contingent edges.
         # Super important!
         pr.verbose("Resampling Stored STN")
@@ -52,12 +54,12 @@ class Simulator(object):
         first_run = True
         options = {"first_run": True,
                    "executed_contingent": False}
-        if "threshold_si" in sim_options:
-            options["threshold_si"] = sim_options["threshold_si"]
-        if "threshold_ar" in sim_options:
-            options["threshold_ar"] = sim_options["threshold_ar"]
-        if "threshold_alp" in sim_options:
-            options["threshold_alp"] = sim_options["threshold_alp"]
+        if "si_threshold" in sim_options:
+            options["si_threshold"] = sim_options["si_threshold"]
+        if "ar_threshold" in sim_options:
+            options["ar_threshold"] = sim_options["ar_threshold"]
+        if "alp_threshold" in sim_options:
+            options["alp_threshold"] = sim_options["alp_threshold"]
 
         # Setup default guide settings
         guide_stn = self.stn
@@ -113,7 +115,6 @@ class Simulator(object):
             functiontimer.stop("propagation & check")
 
             # Clean up the STN
-
             self.remove_old_timepoints(self.stn)
 
             self._current_time = next_time
@@ -288,13 +289,13 @@ class Simulator(object):
                                            previous_guide,
                                            options["first_run"],
                                            options["executed_contingent"],
-                                           options["threshold_si"])
+                                           options["si_threshold"])
         elif execution_strat == "drea-alp":
             return self._drea_alp_algorithm(previous_alpha,
                                             previous_guide,
                                             options["first_run"],
                                             options["executed_contingent"],
-                                            options["threshold_alp"])
+                                            options["alp_threshold"])
         elif execution_strat == "drea-ar":
             if options["executed_contingent"]:
                 self._ar_contingent_event_counter += 1
@@ -302,8 +303,20 @@ class Simulator(object):
                                           previous_guide,
                                           options["first_run"],
                                           options["executed_contingent"],
-                                          options["threshold_ar"],
+                                          options["ar_threshold"],
                                           self._ar_contingent_event_counter)
+            self._ar_contingent_event_counter = ans[2]
+            return ans[0], ans[1]
+        elif execution_strat == "arsi":
+            if options["executed_contingent"]:
+                self._ar_contingent_event_counter += 1
+            ans = self._arsi_algorithm(previous_alpha,
+                                       previous_guide,
+                                       options["first_run"],
+                                       options["executed_contingent"],
+                                       self._ar_contingent_event_counter,
+                                       ar_threshold=options["ar_threshold"],
+                                       si_threshold=options["si_threshold"])
             self._ar_contingent_event_counter = ans[2]
             return ans[0], ans[1]
         else:
@@ -326,6 +339,7 @@ class Simulator(object):
         """ Implements the SREA algorithm. """
         if first_run:
             self.num_reschedules += 1
+            self.num_sent_schedules += 1
             return self._srea_wrapper(previous_alpha, previous_guide)
         # Not our first run, use the previous guide.
         return previous_alpha, previous_guide
@@ -335,6 +349,7 @@ class Simulator(object):
         """ Implements the DREA algorithm. """
         if first_run or executed_contingent:
             self.num_reschedules += 1
+            self.num_sent_schedules += 1
             ans = self._srea_wrapper(previous_alpha, previous_guide)
             pr.verbose("DREA Rescheduled, new alpha: {}".format(ans[0]))
             return ans
@@ -346,8 +361,9 @@ class Simulator(object):
         # Exit early if the STN was not consistent at all.
 
         if first_run:
-            self.num_reschedules += 1
             result = srea.srea(self.stn)
+            self.num_reschedules += 1
+            self.num_sent_schedules += 1
             if result is None:
                 return previous_alpha, previous_guide
             new_alpha = result[0]
@@ -358,22 +374,20 @@ class Simulator(object):
         # a receieved/contingent timepoint.
         if not executed_contingent:
             return previous_alpha, previous_guide
+        # Reschedule
         result = srea.srea(self.stn)
+        self.num_reschedules += 1
         if result is None:
             return previous_alpha, previous_guide
         new_alpha = result[0]
         maybe_guide = result[1]
 
         # num_cont : Number of remaining unexecuted contingent events
-        num_cont = 0
-        for i in maybe_guide.received_timepoints:
-            if not maybe_guide.get_vertex(i).is_executed():
-                num_cont += 1
-
+        num_cont = self.remaining_contingent_count(maybe_guide)
         p_0 = (1-previous_alpha)**num_cont
         p_1 = (1-new_alpha)**num_cont
         if p_1 - p_0 > threshold:
-            self.num_reschedules += 1
+            self.num_sent_schedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide
         else:
@@ -401,6 +415,7 @@ class Simulator(object):
             return previous_alpha, previous_guide
         # We are therefore actually running the algorithm.
         result = srea.srea(self.stn)
+        self.num_reschedules += 1
         if result is None:
             return previous_alpha, previous_guide
         new_alpha = result[0]
@@ -412,11 +427,11 @@ class Simulator(object):
                 num_cont += 1
 
         if abs(new_alpha - previous_alpha) > threshold:
-            self.num_reschedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
+            self.num_sent_schedules += 1
             return new_alpha, maybe_guide
         else:
-            pr.verbose("Did not reschedule, a0={}, a1={}"
+            pr.verbose("Did not send reschedule, a0={}, a1={}"
                        .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide
 
@@ -452,5 +467,66 @@ class Simulator(object):
                 maybe_guide = result[1]
                 new_counter = 0
                 self.num_reschedules += 1
+                self.num_sent_schedules += 1
                 return new_alpha, maybe_guide, new_counter
         return previous_alpha, previous_guide, new_counter
+
+    def _arsi_algorithm(self, previous_alpha, previous_guide, first_run,
+                        executed_contingent, contingent_event_counter,
+                        ar_threshold=0.5,
+                        si_threshold=0.5):
+        """Implements the ARSI algorithm."""
+        if first_run:
+            result = srea.srea(self.stn)
+            if result is not None:
+                self.num_reschedules += 1
+                new_alpha = result[0]
+                new_guide = result[1]
+                return new_alpha, new_guide, contingent_event_counter
+            return previous_alpha, previous_guide, contingent_event_counter
+        # We should only run this algorithm *if* we recently executed
+        # a receieved/contingent timepoint.
+        if not executed_contingent:
+            return previous_alpha, previous_guide, contingent_event_counter
+        # AR SECTION ----------------------------------------------------------
+        # n is a placeholder for how much uncertainty we can take.
+        n = 0
+        attempts = 0  # Make sure we can actually escape if threshold = 0
+        while (1-previous_alpha)**(n+1) > ar_threshold and attempts < 100:
+            n += 1
+            attempts += 1
+        # Should we reschedule?
+        result = None
+        if contingent_event_counter >= n:
+            # Get a new schedule
+            pr.verbose("ARSI rescheduled...")
+            result = srea.srea(self.stn)
+            self.num_reschedules += 1
+        if result is None:
+            # Early exit if SREA failed OR if it's not time yet to reschedule
+            return previous_alpha, previous_guide, contingent_event_counter
+        # SI SECTION ----------------------------------------------------------
+        new_alpha = result[0]
+        maybe_guide = result[1]
+
+        num_cont = self.remaining_contingent_count(maybe_guide)
+        p_0 = (1-previous_alpha)**num_cont
+        p_1 = (1-new_alpha)**num_cont
+        if p_1 - p_0 > si_threshold:
+            self.num_sent_schedules += 1
+            pr.verbose("Got new ARSI guide with alpha={}".format(new_alpha))
+            return new_alpha, maybe_guide, 0
+        else:
+            pr.verbose("ARSI did not send schedule, p_0={}, p_1={}"
+                       .format(p_0, p_1))
+            return previous_alpha, previous_guide, contingent_event_counter
+        return previous_alpha, previous_guide, contingent_event_counter
+
+    def remaining_contingent_count(self, stn):
+        """Returns the number of remaining (unexecuted) contingent events"""
+        # num_cont : Number of remaining unexecuted contingent events
+        num_cont = 0
+        for i in stn.received_timepoints:
+            if not stn.get_vertex(i).is_executed():
+                num_cont += 1
+        return num_cont
