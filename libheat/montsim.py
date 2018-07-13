@@ -120,6 +120,7 @@ class Simulator(object):
             self._current_time = next_time
         pr.verbose("Assignments: " + str(self.get_assigned_times()))
         pr.verbose("Successful!")
+        assert (self.propagate_constraints(self.assignment_stn))
         return True
 
     def select_next_timepoint(self, dispatch, current_time):
@@ -441,10 +442,12 @@ class Simulator(object):
         """ Implements the DREA-AR algorithm. """
         if first_run:
             result = srea.srea(self.stn)
+            self.num_reschedules += 1
             if result is not None:
-                self.num_reschedules += 1
+                self.num_sent_schedules += 1
                 return result[0], result[1], contingent_event_counter
-
+            else:
+                return previous_alpha, previous_guide, contingent_event_counter
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
         if not executed_contingent:
@@ -461,25 +464,26 @@ class Simulator(object):
         new_counter = contingent_event_counter
         if contingent_event_counter >= n or first_run:
             result = srea.srea(self.stn)
+            self.num_reschedules += 1
             if result is not None:
                 pr.verbose("DREA-AR rescheduled our STN")
                 new_alpha = result[0]
                 maybe_guide = result[1]
                 new_counter = 0
-                self.num_reschedules += 1
                 self.num_sent_schedules += 1
                 return new_alpha, maybe_guide, new_counter
         return previous_alpha, previous_guide, new_counter
 
     def _arsi_algorithm(self, previous_alpha, previous_guide, first_run,
                         executed_contingent, contingent_event_counter,
-                        ar_threshold=0.5,
-                        si_threshold=0.5):
+                        ar_threshold=0.0,
+                        si_threshold=0.0):
         """Implements the ARSI algorithm."""
         if first_run:
             result = srea.srea(self.stn)
+            self.num_reschedules += 1
             if result is not None:
-                self.num_reschedules += 1
+                self.num_sent_schedules += 1
                 new_alpha = result[0]
                 new_guide = result[1]
                 return new_alpha, new_guide, contingent_event_counter

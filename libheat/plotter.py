@@ -22,15 +22,13 @@ def main():
 
     # Filter the samples
     full_df = framefilters(full_df)
-    robustness_v_synchrony(full_df, errorbars=False)
-    return
-    #robustness_v_sd(full_df)
-    if args.robustness:
-        clinic_si_threshold(full_df)
-        clinic_ar_threshold(full_df)
+    if args.syncvrobust:
+        sync_v_robust(full_df, errorbars=True)
+        #clinic_si_threshold(full_df)
+        #clinic_ar_threshold(full_df)
         #plot_robustness(full_df, plot_type=args.type)
     elif args.reschedules:
-        plot_reschedule(full_df, plot_type=args.type)
+        plot_threshold(full_df, "ar")
 
 
 def framefilters(df):
@@ -170,7 +168,7 @@ def sd_v_robust(df):
     plt.show()
 
 
-def synch_v_robust(df, errorbars=True, executions=None, thresholds=None):
+def sync_v_robust(df, errorbars=True, executions=None, thresholds=None):
     """Plot Sychronisation vs. Performance
 
     X axis: Degree of Synchronisation
@@ -246,10 +244,12 @@ def synch_v_robust(df, errorbars=True, executions=None, thresholds=None):
     plt.show()
 
 
-def clinic_si_threshold(df):
+def plot_threshold(df, alg):
+    """ Plot SI thresholds when compared against DREA.
+
+    """
     srea = df.loc[df['execution'] == "srea"]
     drea = df.loc[df['execution'] == "drea"]
-    drea_alp = df.loc[df['execution'] == "drea-alp"]
     drea_si = df.loc[df['execution'] == "drea-si"]
     drea_ar = df.loc[df['execution'] == "drea-ar"]
     early = df.loc[df['execution'] == 'early']
@@ -257,70 +257,64 @@ def clinic_si_threshold(df):
     srea_rob = srea["robustness"]
     early_rob = early["robustness"]
     drea_rob = drea["robustness"]
-    drea_alp_rob = drea_alp["robustness"]
     drea_si_rob = drea_si["robustness"]
     drea_ar_rob = drea_ar["robustness"]
 
-    thresholds = [0.0, 0.25, 0.5, 0.75, 1.0]
-    drea_p = sum(drea["samples"]*drea["robustness"]) / sum(drea["samples"])
+    thresholds = [0.0, 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75, 1.0]
     drea_res = drea["reschedule_freq"].mean()
+    drea_send = drea["send_freq"].mean()
     drea_run = drea["runtime"].mean()
 
-    # SI
-    rob_means = []
-    rob_sd = []
-    res = []
-    runs = []
-    for i in thresholds:
-        i_drea_si = drea_si.loc[drea_si["threshold"] == i]
-        n = sum(i_drea_si["samples"])
-        p = sum(i_drea_si["samples"] * i_drea_si["robustness"])\
-                / n
-        sem = (p*(1-p)/n)**0.5
-        rob_means.append((1 - p/drea_p)*100)
-        rob_sd.append(sem)
-        res.append((1 - i_drea_si["reschedule_freq"].mean()/drea_res)*100)
-        runs.append((1 - i_drea_si["runtime"].mean()/drea_run)*100)
+    if "si" in alg.split():
+        rob_means = []
+        rob_sd = []
+        res = []
+        runs = []
+        for i in thresholds:
+            i_drea_si = drea_si.loc[drea_si["si_threshold"] == i]
+            rob_means.append(i_drea_si["robustness"].mean()/drea_rob.mean()
+                             *100)
+            rob_sd.append(i_drea_si["robustness"].sem()*100)
+            res.append((i_drea_si["send_freq"].mean()/drea_send)*100)
+            runs.append((i_drea_si["runtime"].mean()/drea_run)*100)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-',
+                     capsize=4, linewidth=1,
+                     label="SI Robustness")
+        plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+                 label="SI Sent Schedules")
+        plt.plot(thresholds, runs, linestyle=':', linewidth=1,
+                 label="SI Runtime")
+    if "ar" in alg.split():
+        rob_means = []
+        rob_sd = []
+        res = []
+        runs = []
+        for i in thresholds:
+            i_drea_ar = drea_ar.loc[drea_ar["ar_threshold"] == i]
+            rob_means.append(i_drea_ar["robustness"].mean()/drea_rob.mean()
+                             *100)
+            rob_sd.append(i_drea_ar["robustness"].sem()*100)
+            res.append((i_drea_ar["reschedule_freq"].mean()/drea_res)*100)
+            runs.append((i_drea_ar["runtime"].mean()/drea_run)*100)
+        plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-',
+                     capsize=4, linewidth=1,
+                     label="AR Robustness")
+        plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+                 label="AR Reschedules")
+        plt.plot(thresholds, runs, linestyle=':', linewidth=1,
+                 label="AR Runtime")
 
-    plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-', capsize=4,
-                 linewidth=1, label="SI Empirical Success Rate (%)")
-    plt.plot(thresholds, res, linestyle='-.', linewidth=1,
-             label="SI Number of Reschedules")
-    plt.plot(thresholds, runs, linestyle=':', linewidth=1,
-             label="SI Runtime")
+    plt.plot([0.0, 1.0], [srea["reschedule_freq"].mean()/drea_res.mean()*100]*2,
+             linewidth=1, dashes=[4, 6, 2, 6],
+             color="m",
+             label="SREA Reschedule Rate")
 
-    # ALP
-    rob_means = []
-    rob_sd = []
-    res = []
-    runs = []
-    for i in thresholds:
-        i_drea_alp = drea_alp.loc[drea_alp["threshold"] == i]
-        n = sum(i_drea_alp["samples"])
-        p = sum(i_drea_alp["samples"] * i_drea_alp["robustness"])\
-                / n
-        sem = (p*(1-p)/n)**0.5
-        rob_means.append((1 - p/drea_p)*100)
-        rob_sd.append(sem)
-        res.append((1 - i_drea_alp["reschedule_freq"].mean()/drea_res)*100)
-        runs.append((1 - i_drea_alp["runtime"].mean()/drea_run)*100)
-
-    plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-', capsize=4,
-                 linewidth=1, label="ALPHA Empirical Success Rate (%)")
-    plt.plot(thresholds, res, linestyle='-.', linewidth=1,
-             label="ALPHA Number of Reschedules")
-    plt.plot(thresholds, runs, linestyle=':', linewidth=1,
-             label="ALPHA Runtime")
-
-    plt.ylim(-40, 100)
+    plt.ylim(0,120)
     plt.xlim(0, 1)
     plt.legend(loc="lower center")
-    plt.xlabel("Sufficient Improvement Threshold")
-    plt.ylabel("Percent Reduction from DREA")
-    plt.title("Trade-offs Between Communication and Performance in SI")
-    #plt.plot(thresholds, np.full(5, drea_rob.mean()))
-    #plt.plot(thresholds, np.full(5, srea_rob.mean()))
-
+    plt.xlabel("Threshold of Algorithm")
+    plt.ylabel("Percent of DREA")
+    plt.title("Trade-offs Between Communication and Performance")
     plt.show()
 
 
@@ -452,6 +446,7 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='Plotter')
     parser.add_argument('file', nargs="+", type=str, help='Files to plot')
     parser.add_argument("-r", "--robustness", action="store_true")
+    parser.add_argument("--syncvrobust", action="store_true")
     parser.add_argument("-s", "--reschedules", action="store_true")
     parser.add_argument("--type", type=str, help="Plot type, (e.g. line, box)")
     return parser.parse_args()
