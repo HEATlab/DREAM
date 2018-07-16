@@ -140,9 +140,6 @@ class Simulator(object):
         earliest_so_far_time = float("inf")
         has_incoming_contingent = False
 
-        #print("Selecting...")
-        #print(dispatch)
-
         # This could be sped up. We only want unexecuted verts without parents.
         for i, vert in dispatch.verts.items():
             # Don't recheck already executed verts
@@ -406,7 +403,9 @@ class Simulator(object):
                 return previous_alpha, previous_guide
             new_alpha = result[0]
             maybe_guide = result[1]
-            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
+            self.num_sent_schedules += 1
+            pr.verbose("Got new drea-alp guide with alpha={}"
+                       .format(new_alpha))
             return new_alpha, maybe_guide
         # We should only run this algorithm *if* we recently executed
         # a receieved/contingent timepoint.
@@ -426,7 +425,8 @@ class Simulator(object):
                 num_cont += 1
 
         if abs(new_alpha - previous_alpha) > threshold:
-            pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
+            pr.verbose("Got new drea-alp guide with alpha={}"
+                       .format(new_alpha))
             self.num_sent_schedules += 1
             return new_alpha, maybe_guide
         else:
