@@ -328,8 +328,10 @@ class Simulator(object):
         """ Small wrapper to run SREA or keep the same guide if it's not
             consistent.
         """
+        self.num_reschedules += 1
         result = srea.srea(self.stn)
         if result is not None:
+            self.num_sent_schedules += 1
             return result[0], result[1]
         # Our guide was inconsistent... um. Well.
         # This is not great.
@@ -339,8 +341,6 @@ class Simulator(object):
     def _srea_algorithm(self, previous_alpha, previous_guide, first_run):
         """ Implements the SREA algorithm. """
         if first_run:
-            self.num_reschedules += 1
-            self.num_sent_schedules += 1
             return self._srea_wrapper(previous_alpha, previous_guide)
         # Not our first run, use the previous guide.
         return previous_alpha, previous_guide
@@ -349,8 +349,6 @@ class Simulator(object):
                         executed_contingent):
         """ Implements the DREA algorithm. """
         if first_run or executed_contingent:
-            self.num_reschedules += 1
-            self.num_sent_schedules += 1
             ans = self._srea_wrapper(previous_alpha, previous_guide)
             pr.verbose("DREA Rescheduled, new alpha: {}".format(ans[0]))
             return ans
