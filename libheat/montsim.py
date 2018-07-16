@@ -462,7 +462,7 @@ class Simulator(object):
 
         # Temporary variable to maintain unique names.
         new_counter = contingent_event_counter
-        if contingent_event_counter >= n or first_run:
+        if contingent_event_counter >= n:
             result = srea.srea(self.stn)
             self.num_reschedules += 1
             if result is not None:

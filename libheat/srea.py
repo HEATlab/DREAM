@@ -2,12 +2,11 @@ import json
 import re
 import sys
 from math import floor, ceil
-import itertools
 import argparse
 import pulp
 from subprocess import Popen, PIPE
 
-from .stntools import STN
+from .stntools import STN, load_stn_from_json_file
 from .stntools.distempirical import invcdf_norm
 
 # \file SREA.py
@@ -351,7 +350,7 @@ def main():
         parser.error("Incorrect number of arguments")
 
     try:
-        stn = loadSTNfromJSONfile(options.jsonFile)['stn']
+        stn = load_stn_from_json_file(options.jsonFile)['stn']
     except IOError as e:
         sys.stderr.write("I/O error({0}): {1}\n".format(e.errno, e.strerror))
         print((sys.exc_info()[0]))
