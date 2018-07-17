@@ -512,15 +512,14 @@ class Simulator(object):
         maybe_guide = result[1]
 
         num_cont = self.remaining_contingent_count(maybe_guide)
-        p_0 = (1-previous_alpha)**num_cont
-        p_1 = (1-new_alpha)**num_cont
-        if p_1 - p_0 > si_threshold:
+        if abs(new_alpha - previous_alpha) >= si_threshold:
             self.num_sent_schedules += 1
             pr.verbose("Got new ARSI guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide, 0
         else:
-            pr.verbose("ARSI did not send schedule, p_0={}, p_1={}"
-                       .format(p_0, p_1))
+            pr.verbose(("ARSI did not send schedule, previous_alpha={}, "
+                       +"new_alpha={}")
+                       .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide, contingent_event_counter
         return previous_alpha, previous_guide, contingent_event_counter
 
