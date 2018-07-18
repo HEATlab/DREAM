@@ -53,7 +53,10 @@ class Simulator(object):
         # Setup options
         first_run = True
         options = {"first_run": True,
-                   "executed_contingent": False}
+                   "executed_contingent": False,
+                   "executed_time": 0.0,
+                   "guide_min": 0.0,
+                   "guide_max": 0.0}
         if "si_threshold" in sim_options:
             options["si_threshold"] = sim_options["si_threshold"]
         if "ar_threshold" in sim_options:
@@ -96,7 +99,10 @@ class Simulator(object):
             next_time = selection[1]
             executed_contingent = selection[2]
 
-            options['executed_contingent'] = executed_contingent
+            options["executed_contingent"] = executed_contingent
+            options["executed_time"] = next_time
+            options["guide_max"] = guide_stn.get_edge_weight(0, next_vert_id)
+            options["guide_min"] = -guide_stn.get_edge_weight(next_vert_id, 0)
 
             # Propagate constraints (minimise) and check consistency.
             self.assign_timepoint(guide_stn, next_vert_id, next_time)
@@ -282,6 +288,14 @@ class Simulator(object):
                                         previous_guide,
                                         options["first_run"],
                                         options["executed_contingent"])
+        elif execution_strat == "drea-s":
+            return self._drea_s_algorithm(previous_alpha,
+                                          previous_guide,
+                                          options["first_run"],
+                                          options["executed_contingent"],
+                                          options["executed_time"],
+                                          options["guide_min"],
+                                          options["guide_max"])
         elif execution_strat == "drea-si":
             return self._drea_si_algorithm(previous_alpha,
                                            previous_guide,
@@ -349,6 +363,21 @@ class Simulator(object):
             ans = self._srea_wrapper(previous_alpha, previous_guide)
             pr.verbose("DREA Rescheduled, new alpha: {}".format(ans[0]))
             return ans
+        return previous_alpha, previous_guide
+
+    def _drea_s_algorithm(self, previous_alpha, previous_guide, first_run,
+                         executed_contingent, next_time, min_time, max_time):
+        """ Implements the SREA-S algorithm. """
+        if first_run:
+            return self._srea_wrapper(previous_alpha, previous_guide)
+        if executed_contingent:
+            if (not (min_time <= next_time <= max_time)):
+                pr.verbose("Rescheduling! t={}, not in [{}, {}]"
+                           .format(next_time, min_time, max_time))
+                # We need to reschedule now.
+                return self._srea_wrapper(previous_alpha, previous_guide)
+            pr.verbose("Did not reschedule, t={} in [{}, {}]"
+                        .format(next_time, min_time, max_time))
         return previous_alpha, previous_guide
 
     def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
