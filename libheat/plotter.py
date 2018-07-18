@@ -24,14 +24,30 @@ def main():
     full_df = framefilters(full_df)
     if args.syncvrobust:
         sync_v_robust(full_df, errorbars=True)
-        #clinic_si_threshold(full_df)
-        #clinic_ar_threshold(full_df)
-        #plot_robustness(full_df, plot_type=args.type)
     elif args.reschedules:
-        plot_threshold(full_df, "ar")
-
+        plot_threshold(full_df, "si")
+    elif args.arsi_threshold:
+        ax = plt.subplot(2, 1, 1)
+        ax.set_title("ARSI Threshold Cross Sections")
+        plot_arsi_cross(full_df, ar_threshold=1.0, ax=ax)
+        ax = plt.subplot(2, 1, 2)
+        plot_arsi_cross(full_df, si_threshold=0.0, ax=ax)
+        plt.show()
 
 def framefilters(df):
+    """Filter a DataFrame of rows that we don't want in the first place.
+    This includes things like STNs which have 0% robustness.
+
+    This function also adds an additional column to the data set, the
+    "sync_deg" column, which is used to to plot the "crucial" graphs of
+    synchronous degree.
+
+    Args:
+        df (DataFrame): DataFrame to filter.
+
+    Returns:
+        Returns a new DataFrame with the rows we wish to ignore removed.
+    """
     # Add the synchrony column, extracted from the file name.
     sync_column = []
     for i, row in df.iterrows():
@@ -45,6 +61,7 @@ def framefilters(df):
 
 
 def clearzero(df):
+    """Remove STN rows which have 0% robustness across all runs."""
     unique_stns = df.drop_duplicates(subset="stn_path")
     to_remove = []
     for _, row in unique_stns.iterrows():
@@ -244,10 +261,131 @@ def sync_v_robust(df, errorbars=True, executions=None, thresholds=None):
     plt.show()
 
 
+def plot_arsi_cross(df, **kwargs):
+    """ Plot ARSI algorithm crossection.
+    Args:
+        df (DataFrame): DataFrame object to read from.
+        **kwargs:
+            si_threshold (float): Holding si_value.
+            ar_threshold (float): Holding ar_value.
+            threshold_range (list): Threshold range to plot.
+            ax (pyplot.axes): Axes to plot on. Otherwise, plot on the default.
+    """
+    # Start setup -------------------------------------------------------------
+    if not "si_threshold" in kwargs and not "ar_threshold" in kwargs:
+        raise ValueError("Requires either 'si_threshold' or 'ar_threshold' set"
+                         " when using ARSI algorithm")
+    elif not "si_threshold" in kwargs:
+        # si cross section not present, must be using SI
+        using_si = True
+        ar_cut= kwargs["ar_threshold"]
+    else:
+        # Must be using AR.
+        using_si = False
+        si_cut = kwargs["si_threshold"]
+
+    srea = df.loc[df['execution'] == "srea"]
+    drea = df.loc[df['execution'] == "drea"]
+
+    if using_si:
+        arsi = df.loc[(df['execution'] == "arsi")
+                      & (df["ar_threshold"] == ar_cut)]
+    else:
+        arsi = df.loc[(df['execution'] == "arsi")
+                      & (df["si_threshold"] == si_cut)]
+
+    srea_rob = srea["robustness"]
+    drea_rob = drea["robustness"]
+    arsi_rob = arsi["robustness"]
+
+
+    if "threshold_range" in kwargs:
+        thresholds = kwargs["threshold_range"]
+    else:
+        thresholds = [0.0, 0.0625, 0.125, 0.25, 0.5, 1.0]
+    # End setup ---------------------------------------------------------------
+    drea_res = drea["reschedule_freq"].mean()
+    drea_send = drea["send_freq"].mean()
+    drea_run = drea["runtime"].mean()
+
+    print(drea_rob.mean())
+    print(drea_send)
+    print(drea_res)
+
+    rob_means = []
+    stderrs = []
+    sends = []
+    reschedules = []
+    runtimes = []
+
+    for t in thresholds:
+        if using_si:
+            arsi_point = arsi.loc[arsi["si_threshold"] == t]
+        else:
+            arsi_point = arsi.loc[arsi["ar_threshold"] == t]
+        mean = arsi_point["robustness"].mean()/drea_rob.mean() * 100
+        rob_means.append(mean)
+        se = arsi_point["robustness"].sem() * 100
+        stderrs.append(se)
+        send_dat = arsi_point["send_freq"].mean()/drea_send * 100
+        sends.append(send_dat)
+        res = arsi_point["reschedule_freq"].mean()/drea_res * 100
+        reschedules.append(res)
+        runtime = arsi_point["runtime"].mean()/drea_run * 100
+        runtimes.append(runtime)
+
+    if using_si:
+        arsi_label = "ARSI ar={} ".format(ar_cut)
+    else:
+        arsi_label = "ARSI si={} ".format(si_cut)
+
+    if "ax" in kwargs:
+        ax = kwargs["ax"]
+        ax.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
+                     capsize=4, linewidth=1,
+                     label=arsi_label + "Robustness")
+        ax.plot(thresholds, sends, linestyle='-.', linewidth=1,
+                 label=arsi_label + "Sent Schedules")
+        ax.plot(thresholds, runtimes, linestyle=':', linewidth=1,
+                 label=arsi_label + "Runtime")
+
+        ax.legend(loc="lower center")
+        #ax.title(arsi_label+"Cross Section")
+        if using_si:
+            ax.set_xlabel("SI Threshold")
+        else:
+            ax.set_xlabel("AR Threshold")
+        ax.set_ylabel("Percent of DREA")
+        ax.set_xlim(0.0, 1.0)
+        ax.set_ylim(0.0, 120.0)
+    else:
+        plt.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
+                     capsize=4, linewidth=1,
+                     label=arsi_label + "Robustness")
+        plt.plot(thresholds, sends, linestyle='-.', linewidth=1,
+                 label=arsi_label + "Sent Schedules")
+        plt.plot(thresholds, runtimes, linestyle=':', linewidth=1,
+                 label=arsi_label + "Runtime")
+
+        plt.legend(loc="lower center")
+        plt.title(arsi_label+"Cross Section")
+        if using_si:
+            plt.xlabel("SI Threshold")
+        else:
+            plt.xlabel("AR Threshold")
+        plt.ylabel("Percent of DREA")
+        plt.xlim(0.0, 1.0)
+        plt.ylim(0.0, 120.0)
+        plt.show()
+
 def plot_threshold(df, alg):
     """ Plot SI thresholds when compared against DREA.
 
+    Args:
+        df (DataFrame):
+        alg (str): Algorithm to analyse using the threshold.
     """
+
     srea = df.loc[df['execution'] == "srea"]
     drea = df.loc[df['execution'] == "drea"]
     drea_si = df.loc[df['execution'] == "drea-si"]
@@ -268,19 +406,19 @@ def plot_threshold(df, alg):
     if "si" in alg.split():
         rob_means = []
         rob_sd = []
-        res = []
+        sends = []
         runs = []
         for i in thresholds:
             i_drea_si = drea_si.loc[drea_si["si_threshold"] == i]
             rob_means.append(i_drea_si["robustness"].mean()/drea_rob.mean()
                              *100)
             rob_sd.append(i_drea_si["robustness"].sem()*100)
-            res.append((i_drea_si["send_freq"].mean()/drea_send)*100)
+            sends.append((i_drea_si["send_freq"].mean()/drea_send)*100)
             runs.append((i_drea_si["runtime"].mean()/drea_run)*100)
         plt.errorbar(thresholds, rob_means, yerr=rob_sd, linestyle='-',
                      capsize=4, linewidth=1,
                      label="SI Robustness")
-        plt.plot(thresholds, res, linestyle='-.', linewidth=1,
+        plt.plot(thresholds, sends, linestyle='-.', linewidth=1,
                  label="SI Sent Schedules")
         plt.plot(thresholds, runs, linestyle=':', linewidth=1,
                  label="SI Runtime")
@@ -304,10 +442,10 @@ def plot_threshold(df, alg):
         plt.plot(thresholds, runs, linestyle=':', linewidth=1,
                  label="AR Runtime")
 
-    plt.plot([0.0, 1.0], [srea["reschedule_freq"].mean()/drea_res.mean()*100]*2,
+    plt.plot([0.0, 1.0], [srea["robustness"].mean()/drea_rob.mean()*100]*2,
              linewidth=1, dashes=[4, 6, 2, 6],
              color="m",
-             label="SREA Reschedule Rate")
+             label="SREA Robustness")
 
     plt.ylim(0,120)
     plt.xlim(0, 1)
@@ -448,7 +586,7 @@ def parse_args():
     parser.add_argument("-r", "--robustness", action="store_true")
     parser.add_argument("--syncvrobust", action="store_true")
     parser.add_argument("-s", "--reschedules", action="store_true")
-    parser.add_argument("--type", type=str, help="Plot type, (e.g. line, box)")
+    parser.add_argument("--arsi-threshold", action="store_true")
     return parser.parse_args()
 
 
