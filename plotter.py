@@ -6,11 +6,24 @@ Analyses and plots the old space-separated data files.
 
 import argparse
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 import pandas as pd
 import numpy as np
 
 
+from libheat.plotting.plot_utils import framefilters
+from libheat.plotting.plot_arsc import plot_arsc_cross
+
+
+CM2INCH = 0.393701
+DEFAULT_WIDTH = 20
+DEFAULT_HEIGHT = 12
+
+
 def main():
+    # Setup -------------------------------------------------------------------
+    rcParams["font.family"] = "serif"
+
     args = parse_args()
     full_df = None
     for f in args.file:
@@ -22,63 +35,24 @@ def main():
 
     # Filter the samples
     full_df = framefilters(full_df)
+
+    plt.figure(figsize=(CM2INCH*DEFAULT_WIDTH, CM2INCH*DEFAULT_HEIGHT))
+    ax = plt.gca()
+    ax.tick_params(bottom=True, top=True, left=True, right=True)
+
     if args.syncvrobust:
         sync_v_robust(full_df, errorbars=True)
     elif args.reschedules:
         plot_threshold(full_df, "si")
     elif args.arsi_threshold:
-        ax = plt.subplot(2, 1, 1)
-        ax.set_title("ARSI Threshold Cross Sections")
-        plot_arsi_cross(full_df, ar_threshold=1.0, ax=ax)
-        ax = plt.subplot(2, 1, 2)
-        plot_arsi_cross(full_df, si_threshold=0.0, ax=ax)
+        ax.set_title("ARSC Threshold Cross Section (m_AR = 1)")
+        plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
+        #plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax)
+
+    if args.output is None:
         plt.show()
-
-def framefilters(df):
-    """Filter a DataFrame of rows that we don't want in the first place.
-    This includes things like STNs which have 0% robustness.
-
-    This function also adds an additional column to the data set, the
-    "sync_deg" column, which is used to to plot the "crucial" graphs of
-    synchronous degree.
-
-    Args:
-        df (DataFrame): DataFrame to filter.
-
-    Returns:
-        Returns a new DataFrame with the rows we wish to ignore removed.
-    """
-    # Add the synchrony column, extracted from the file name.
-    sync_column = []
-    for i, row in df.iterrows():
-        foldername = row["stn_path"].split("/")[-2]
-        synchrony = float(foldername.split("_")[4][1:])*0.001
-        sync_column.append(synchrony)
-    df = df.assign(sync_deg=pd.Series(sync_column))
-    # Remove zeros present in the data.
-    df = clearzero(df)
-    return df[df.samples >= 100]
-
-
-def clearzero(df):
-    """Remove STN rows which have 0% robustness across all runs."""
-    unique_stns = df.drop_duplicates(subset="stn_path")
-    to_remove = []
-    for _, row in unique_stns.iterrows():
-        stn_path = row["stn_path"]
-        runs = df.loc[df["stn_path"] == stn_path]
-        all_zero = True
-        for _, run in runs.iterrows():
-            if not all_zero:
-                break
-            all_zero = run["robustness"] <= 0.0
-        if all_zero:
-            to_remove.append(stn_path)
-    for path in to_remove:
-        indices = df.loc[df["stn_path"] == path]
-        common = df.merge(indices, on=['stn_path'])
-        df = df[~df.stn_path.isin(common.stn_path)]
-    return df
+    else:
+        plt.savefig(args.output)
 
 
 def plot_robustness(df, plot_type="box"):
@@ -260,123 +234,6 @@ def sync_v_robust(df, errorbars=True, executions=None, thresholds=None):
     plt.title("Degree of Synchronization vs. Performance")
     plt.show()
 
-
-def plot_arsi_cross(df, **kwargs):
-    """ Plot ARSI algorithm crossection.
-    Args:
-        df (DataFrame): DataFrame object to read from.
-        **kwargs:
-            si_threshold (float): Holding si_value.
-            ar_threshold (float): Holding ar_value.
-            threshold_range (list): Threshold range to plot.
-            ax (pyplot.axes): Axes to plot on. Otherwise, plot on the default.
-    """
-    # Start setup -------------------------------------------------------------
-    if not "si_threshold" in kwargs and not "ar_threshold" in kwargs:
-        raise ValueError("Requires either 'si_threshold' or 'ar_threshold' set"
-                         " when using ARSI algorithm")
-    elif not "si_threshold" in kwargs:
-        # si cross section not present, must be using SI
-        using_si = True
-        ar_cut= kwargs["ar_threshold"]
-    else:
-        # Must be using AR.
-        using_si = False
-        si_cut = kwargs["si_threshold"]
-
-    srea = df.loc[df['execution'] == "srea"]
-    drea = df.loc[df['execution'] == "drea"]
-
-    if using_si:
-        arsi = df.loc[(df['execution'] == "arsi")
-                      & (df["ar_threshold"] == ar_cut)]
-    else:
-        arsi = df.loc[(df['execution'] == "arsi")
-                      & (df["si_threshold"] == si_cut)]
-
-    srea_rob = srea["robustness"]
-    drea_rob = drea["robustness"]
-    arsi_rob = arsi["robustness"]
-
-
-    if "threshold_range" in kwargs:
-        thresholds = kwargs["threshold_range"]
-    else:
-        thresholds = [0.0, 0.0625, 0.125, 0.25, 0.5, 1.0]
-    # End setup ---------------------------------------------------------------
-    drea_res = drea["reschedule_freq"].mean()
-    drea_send = drea["send_freq"].mean()
-    drea_run = drea["runtime"].mean()
-
-    print(drea_rob.mean())
-    print(drea_send)
-    print(drea_res)
-
-    rob_means = []
-    stderrs = []
-    sends = []
-    reschedules = []
-    runtimes = []
-
-    for t in thresholds:
-        if using_si:
-            arsi_point = arsi.loc[arsi["si_threshold"] == t]
-        else:
-            arsi_point = arsi.loc[arsi["ar_threshold"] == t]
-        mean = arsi_point["robustness"].mean()/drea_rob.mean() * 100
-        rob_means.append(mean)
-        se = arsi_point["robustness"].sem() * 100
-        stderrs.append(se)
-        send_dat = arsi_point["send_freq"].mean()/drea_send * 100
-        sends.append(send_dat)
-        res = arsi_point["reschedule_freq"].mean()/drea_res * 100
-        reschedules.append(res)
-        runtime = arsi_point["runtime"].mean()/drea_run * 100
-        runtimes.append(runtime)
-
-    if using_si:
-        arsi_label = "ARSI ar={} ".format(ar_cut)
-    else:
-        arsi_label = "ARSI si={} ".format(si_cut)
-
-    if "ax" in kwargs:
-        ax = kwargs["ax"]
-        ax.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
-                     capsize=4, linewidth=1,
-                     label=arsi_label + "Robustness")
-        ax.plot(thresholds, sends, linestyle='-.', linewidth=1,
-                 label=arsi_label + "Sent Schedules")
-        ax.plot(thresholds, runtimes, linestyle=':', linewidth=1,
-                 label=arsi_label + "Runtime")
-
-        ax.legend(loc="lower center")
-        #ax.title(arsi_label+"Cross Section")
-        if using_si:
-            ax.set_xlabel("SI Threshold")
-        else:
-            ax.set_xlabel("AR Threshold")
-        ax.set_ylabel("Percent of DREA")
-        ax.set_xlim(0.0, 1.0)
-        ax.set_ylim(0.0, 120.0)
-    else:
-        plt.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
-                     capsize=4, linewidth=1,
-                     label=arsi_label + "Robustness")
-        plt.plot(thresholds, sends, linestyle='-.', linewidth=1,
-                 label=arsi_label + "Sent Schedules")
-        plt.plot(thresholds, runtimes, linestyle=':', linewidth=1,
-                 label=arsi_label + "Runtime")
-
-        plt.legend(loc="lower center")
-        plt.title(arsi_label+"Cross Section")
-        if using_si:
-            plt.xlabel("SI Threshold")
-        else:
-            plt.xlabel("AR Threshold")
-        plt.ylabel("Percent of DREA")
-        plt.xlim(0.0, 1.0)
-        plt.ylim(0.0, 120.0)
-        plt.show()
 
 def plot_threshold(df, alg):
     """ Plot SI thresholds when compared against DREA.
@@ -587,6 +444,8 @@ def parse_args():
     parser.add_argument("--syncvrobust", action="store_true")
     parser.add_argument("-s", "--reschedules", action="store_true")
     parser.add_argument("--arsi-threshold", action="store_true")
+    parser.add_argument("-o", "--output", type=str, default=None,
+                        help="Output file name")
     return parser.parse_args()
 
 
@@ -614,26 +473,6 @@ def analyze_data_tightness(frame, columns, executions, interagent_tightnesses):
             means[execution] = (sum(execution_col)/float(count))
         mean_frame = mean_frame.append(means, ignore_index=True)
     print(mean_frame[TO_SHOW])
-
-
-def remove_zeroed(frame, cols) -> None:
-    """Remove rows which have all zeros in the provided columns
-
-    Args:
-        frame (DataFrame): Frame to clean from
-        cols (tuple): Strings to check for zeros in simultaneously.
-
-    Post:
-        Modifies the frame in-place. Note it's a pass-by-reference.
-    """
-    to_drop = []
-    for index, row in frame.iterrows():
-        drop = True
-        for col in cols:
-            drop = (row[col] == 0.0 and drop)
-        if drop:
-            to_drop.append(index)
-    frame.drop(to_drop)
 
 
 if __name__ == "__main__":
