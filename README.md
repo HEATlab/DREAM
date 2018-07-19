@@ -2,6 +2,8 @@
 
 New version of the robotbrunch codebase.
 
+Requirements to run are stored in [requirements.txt](requirements.txt)
+
 This code is copyright of Harvey Mudd College's HEATlab.
 
 Rewrite Started by: Jordan R. Abrahams (HMC '19)
