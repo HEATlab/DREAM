@@ -14,6 +14,7 @@ class Simulator(object):
         self.assignment_stn = None
         self._current_time = 0.0
 
+        self._ar_contingent_event_counter = 0
         self._rand_seed = random_seed
         self._rand_state = np.random.RandomState(random_seed)
         self.num_reschedules = 0
@@ -43,6 +44,7 @@ class Simulator(object):
         self.stn = starting_stn.copy()
         self.assignment_stn = starting_stn.copy()
         self._ar_contingent_event_counter = 0
+        self._ara_successfactor = 1.0
         self.num_reschedules = 0
         self.num_sent_schedules = 0
         # Resample the contingent edges.
@@ -319,6 +321,23 @@ class Simulator(object):
                                           self._ar_contingent_event_counter)
             self._ar_contingent_event_counter = ans[2]
             return ans[0], ans[1]
+        elif execution_strat == "drea-ara":
+            if not options["executed_contingent"] and not options["first_run"]:
+                return previous_alpha, previous_guide
+            in_bounds = (options["guide_min"] <= options["executed_time"]
+                         <= options["guide_max"])
+            pr.verbose("In bounds?: {}".format(in_bounds))
+            pr.verbose("{}, {}, {}".format(options["guide_min"],
+                                               options["executed_time"],
+                                               options["guide_max"]))
+            ans = self._drea_ara_algorithm(previous_alpha,
+                                           previous_guide,
+                                           options["first_run"],
+                                           options["ar_threshold"],
+                                           self._ara_successfactor,
+                                           in_bounds)
+            self._ara_successfactor = ans[2]
+            return ans[0], ans[1]
         elif execution_strat == "arsi":
             if options["executed_contingent"]:
                 self._ar_contingent_event_counter += 1
@@ -482,10 +501,11 @@ class Simulator(object):
 
         # n is a placeholder for how much uncertainty we can take.
         n = 0
-        attempts = 0  # Make sure we can actually escape if threshold = 0
-        while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
-            n += 1
-            attempts += 1
+        if threshold == 0:
+            n = float("inf")
+        else:
+            while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
+                n += 1
 
         # Temporary variable to maintain unique names.
         new_counter = contingent_event_counter
@@ -501,11 +521,51 @@ class Simulator(object):
                 return new_alpha, maybe_guide, new_counter
         return previous_alpha, previous_guide, new_counter
 
+    def _drea_ara_algorithm(self, previous_alpha, previous_guide, first_run,
+                            threshold, successfactor, in_bounds):
+        """ Implements the DREA-ARA algorithm.
+
+        Written by Jordan...
+        Oh god please, this function's arguments are cancer. -Jordan 2018
+        """
+        if first_run:
+            result = srea.srea(self.stn)
+            self.num_reschedules += 1
+            if result is not None:
+                self.num_sent_schedules += 1
+                return result[0], result[1], successfactor
+            else:
+                return previous_alpha, previous_guide, successfactor
+
+        # Temporary variable to maintain unique names.
+        newfactor = successfactor
+        if in_bounds:
+            newfactor *= 1.0-previous_alpha
+        else:
+            newfactor = min(1.0-previous_alpha, previous_alpha/2.0)
+
+        if successfactor <= threshold:
+            result = srea.srea(self.stn)
+            self.num_reschedules += 1
+            if result is not None:
+                pr.verbose("DREA-AR rescheduled our STN")
+                new_alpha = result[0]
+                maybe_guide = result[1]
+                newfactor = 1.0
+                self.num_sent_schedules += 1
+                return new_alpha, maybe_guide, newfactor
+        return previous_alpha, previous_guide, newfactor
+
     def _arsi_algorithm(self, previous_alpha, previous_guide, first_run,
                         executed_contingent, contingent_event_counter,
                         ar_threshold=0.0,
                         si_threshold=0.0):
-        """Implements the ARSI algorithm."""
+        """Implements the ARSI algorithm. This is now technically ARSC, not
+        ARSI anymore because we are doing a direct alpha comparsion.
+
+        Direct alpha comparison with absolute value allows considering cases
+        where we *do* see an increase in risk, rather than a decrease.
+        """
         if first_run:
             result = srea.srea(self.stn)
             self.num_reschedules += 1
@@ -530,7 +590,7 @@ class Simulator(object):
         result = None
         if contingent_event_counter >= n:
             # Get a new schedule
-            pr.verbose("ARSI rescheduled...")
+            pr.verbose("ARSC rescheduled...")
             result = srea.srea(self.stn)
             self.num_reschedules += 1
         if result is None:
@@ -543,10 +603,10 @@ class Simulator(object):
         num_cont = self.remaining_contingent_count(maybe_guide)
         if abs(new_alpha - previous_alpha) >= si_threshold:
             self.num_sent_schedules += 1
-            pr.verbose("Got new ARSI guide with alpha={}".format(new_alpha))
+            pr.verbose("Got new ARSC guide with alpha={}".format(new_alpha))
             return new_alpha, maybe_guide, 0
         else:
-            pr.verbose(("ARSI did not send schedule, previous_alpha={}, "
+            pr.verbose(("ARSC did not send schedule, previous_alpha={}, "
                        +"new_alpha={}")
                        .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide, contingent_event_counter
