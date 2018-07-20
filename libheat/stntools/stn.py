@@ -622,6 +622,14 @@ class STN(object):
                 return False
 
     def get_assigned_time(self, node_id):
+        """Retrieves the assigned time of a node.
+
+        Args:
+            node_id (int): Node id to check.
+        Returns:
+            If the node is assigned (has an exact, specific time), return that
+                time. Otherwise, return None.
+        """
         if node_id == 0:
             # This is the Z-node.
             return 0.0
