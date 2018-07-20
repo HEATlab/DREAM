@@ -88,6 +88,7 @@ def plot_arsc_cross(df, **kwargs):
                 arsc_point = arsc.loc[arsc["si_threshold"] == t]
         else:
             arsc_point = arsc.loc[arsc["ar_threshold"] == t]
+
         mean = arsc_point["robustness"].mean()/drea_rob.mean() * 100
         rob_means.append(mean)
         se = arsc_point["robustness"].sem() * 100

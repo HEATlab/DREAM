@@ -45,9 +45,18 @@ def main():
     elif args.reschedules:
         plot_threshold(full_df, "si")
     elif args.arsi_threshold:
-        ax.set_title("ARSC Threshold Cross Section (m_AR = 1)")
-        plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
-        #plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax)
+        ax.set_title("ARSC Threshold Cross Section (m_SC = 0)")
+        #plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
+        plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True)
+        #sur = (full_df.loc[full_df["execution"] ==
+        #                   "drea-s"])
+        #drea = (full_df.loc[full_df["execution"] ==
+        #                   "drea"])
+        #ax.plot([0, 1], [sur["robustness"].mean()/drea["robustness"].mean() *
+        #                 100]*2)
+        #ax.plot([0, 1],
+        #        [sur["reschedule_freq"].mean()/drea["reschedule_freq"].mean() *
+        #         100]*2)
 
     if args.output is None:
         plt.show()
