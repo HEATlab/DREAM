@@ -174,7 +174,6 @@ class Simulator(object):
                                          for edge in incoming_reqs])
             else:
                 sample_time = incoming_contingent.sampled_time()
-                #print("Node checking={}, sampled_time={}".format(i, sample_time))
                 # Get the contingent edge's predecessor
                 cont_pred = incoming_contingent.i
                 assigned_time = dispatch.get_assigned_time(cont_pred)
