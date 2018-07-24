@@ -18,6 +18,7 @@ import numpy as np
 from libheat import functiontimer
 from libheat.stntools import STN, load_stn_from_json_file
 from libheat.montsim import Simulator
+from libheat.dmontsim import DecoupledSimulator
 import libheat.printers as pr
 from libheat import sim2csv
 
@@ -151,13 +152,24 @@ def multiple_simulations(starting_stn, execution_strat,
     if random_seed is not None:
         seed_gen = np.random.RandomState(random_seed)
         seeds = [seed_gen.randint(MAX_SEED) for i in range(count)]
-        tasks = [(Simulator(seeds[i]), starting_stn, execution_strat,
-                  sim_options)
-                 for i in range(count)]
+        if execution_strat == "da":
+            tasks = [(DecoupledSimulator(seeds[i]), starting_stn,
+                      execution_strat,
+                      sim_options)
+                     for i in range(count)]
+        else:
+            tasks = [(Simulator(seeds[i]), starting_stn, execution_strat,
+                      sim_options)
+                     for i in range(count)]
     else:
-        tasks = [(Simulator(None), starting_stn, execution_strat,
-                  sim_options)
-                 for i in range(count)]
+        if execution_strat == "da":
+            tasks = [(DecoupledSimulator(None), starting_stn, execution_strat,
+                      sim_options)
+                     for i in range(count)]
+        else:
+            tasks = [(Simulator(None), starting_stn, execution_strat,
+                      sim_options)
+                     for i in range(count)]
     if threads > 1:
         print("Using multithreading; threads = {}".format(threads))
         try_count = 0
@@ -192,7 +204,10 @@ def _multisim_thread_helper(tup):
     """ Helper function to allow passing multiple arguments to the simulator.
     """
     simulator = tup[0]
-    ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
+    if tup[2] == "da":
+        ans = simulator.simulate(tup[1], sim_options=tup[3])
+    else:
+        ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
     reschedule_count = simulator.num_reschedules
     sent_count = simulator.num_sent_schedules
     pr.verbose("Assigned Times: {}".format(simulator.get_assigned_times()))
