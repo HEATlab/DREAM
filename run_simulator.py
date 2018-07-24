@@ -6,6 +6,14 @@ strategy.
 
 
 """
+
+import sys
+
+try:
+    assert(sys.version_info >= (3,0))
+except AssertionError:
+    print("Simulations must be run with Python3 or greater")
+
 import os
 import os.path
 import sys
@@ -87,6 +95,8 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
 
         robustness = results.count(True)/len(results)
         vert_count = len(stn.verts)
+        max_verts_on_agent = max_agent_verts(stn)
+        mean_verts_on_agent = (len(stn.verts) - 1)/len(stn.agents)
         cont_dens = len(stn.contingent_edges)/len(stn.edges)
         synchrony = len(stn.interagent_edges)/len(stn.edges)
 
@@ -109,6 +119,9 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["synchronous_density"] = synchrony
         results_dict["sd_avg"] = sd_avg
         results_dict["vert_count"] = vert_count
+        results_dict["agents"] = len(stn.agents)
+        results_dict["mean_verts_agent"] = mean_verts_on_agent
+        results_dict["max_verts_agent"] = max_verts_on_agent
         results_dict["contingent_density"] = cont_dens
         results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
         results_dict["send_freq"] = sum(sent_schedules)/len(sent_schedules)
@@ -134,6 +147,10 @@ def _print_results(results_dict, i, num_paths):
     print("    Seed: {}".format(results_dict["random_seed"]))
     print("    Runtime: {}".format(results_dict["runtime"]))
     print("    Vert Count: {}".format(results_dict["vert_count"]))
+    print("    Agents: {}".format(results_dict["agents"]))
+    print("    Max verts on Agent: {}".format(results_dict["max_verts_agent"]))
+    print("    Mean verts on Agent: {}".format(
+        results_dict["mean_verts_agent"]))
     print("    Cont Edge Dens: {}".format(results_dict["contingent_density"]))
     print("    Cont SD Avg: {}".format(results_dict["sd_avg"]))
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
@@ -261,6 +278,32 @@ def folder_harvest(folder_paths: list, recurse=True, only_json=True) -> list:
                        folder_path)
             pr.warning("Skipping...")
     return stn_files
+
+
+def max_agent_verts(stn):
+    """Returns the maximum amount of vertices belonging to any one agent"""
+    return max([get_agent_verts(stn, a) for a in stn.agents])
+
+def mean_agent_verts(stn):
+    counts = [get_agent_verts(stn, a) for a in stn.agents]
+    return sum(counts)/len(counts)
+
+def get_agent_verts(stn, agent):
+    """Returns the number of vertices owned by the provided agent in the given
+        STN.
+
+    Args:
+        stn (STN): STN to use.
+        agent (int): Agent ID to get verts of.
+
+    Returns:
+        The number of vertices owned by the provided agent.
+    """
+    count = 0
+    for vert in stn.verts.values():
+        if vert.ownerID == agent:
+            count += 1
+    return count
 
 
 def parse_args():
