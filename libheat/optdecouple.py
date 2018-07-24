@@ -51,6 +51,7 @@ def alpha_binary_search(stn: STN, fidelity=0.001):
     found = False
     current_alpha = -1.0
     guide = None
+    assignments = None
     while True:
         new_alpha = (upper_bound + lower_bound)/2
         if abs(new_alpha - current_alpha) <= fidelity:
