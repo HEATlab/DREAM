@@ -22,12 +22,11 @@ def save_csv_row(row, to_file):
 
     df = pd.DataFrame.from_dict(list_row)
     to_file_abs = os.path.abspath(os.path.expanduser(to_file))
-    
+
     if os.path.isfile(to_file_abs):
         # File exists, there should also be a header line then.
         df.to_csv(to_file_abs, index=False, header=False, mode='a',
                   encoding='utf-8')
-        print("CORRECT")
     else:
         # File does not exist, make it.
         df.to_csv(to_file_abs, index=False, header=True, mode='w',
