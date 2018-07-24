@@ -55,7 +55,7 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
     stn = STN()
 
     # Add the root vertex and put it in the T_x set
-    stn.add_vertex(0, 0, None)
+    stn.add_vertex(0, None, None)
     agents = []
 
     # specify conversion factor.

@@ -2,14 +2,72 @@ import pulp
 
 
 from .stntools import STN, Edge
+from .stntools.distempirical import invcdf_norm
 
 
-def optimal_decouple_agents(stn):
-    """ Optimally decouple agents.
+def decouple_agents(stn: STN, fidelity=0.001):
+    """Decouples agents optimally (maximising flexibility between agents)
+
+    Args:
+        stn (STN): STN to optimally decouple using.
+        fidelity (float, optional):
+
+    Returns:
+        A tuple of the form (alpha, guide STN), where the alpha is the amount
+        of risk associated with that guide. The guide is a decomposition, and
+        often we want only the the interagent agent decoupling constraints.
     """
-    pulp.LpSolverDefault.msg = 1
-    _, assignments = wilson_flex(stn)
-    print("Got here!")
+    alpha, assignments = alpha_binary_search(stn, fidelity)
+    if assignments is None:
+        return None, None
+    restricted_stn = stn.copy()
+    for from_id, to_id in stn.interagent_edges:
+        restricted_stn.update_edge(0, from_id, assignments[from_id][1])
+        restricted_stn.update_edge(from_id, 0, -assignments[from_id][0])
+        restricted_stn.update_edge(0, to_id, assignments[to_id][1])
+        restricted_stn.update_edge(to_id, 0, -assignments[to_id][0])
+
+    substns = []
+    for agent in restricted_stn.agents:
+        substn = restricted_stn.get_agent_substn(agent, True)
+        substns.append(substn)
+    return alpha, substns
+
+
+def alpha_binary_search(stn: STN, fidelity=0.001):
+    """Use a binary search to find lowest alpha (STN guide risk)
+
+    Args:
+        stn (STN): STN to use for LP variable creation.
+        fidelity (float, optional): Threshold when the alpha search is close
+            enough. Default is 0.001.
+
+    Returns:
+        Tuple of (alpha, dict of assignments), where alpha is the lowest
+        associated risk level of those assignments.
+    """
+    upper_bound = 1.0
+    lower_bound = 0.0
+    found = False
+    current_alpha = -1.0
+    guide = None
+    while True:
+        new_alpha = (upper_bound + lower_bound)/2
+        if abs(new_alpha - current_alpha) <= fidelity:
+            # We have found an acceptable alpha.
+            break
+        current_alpha = new_alpha
+        # Check to see if the LP is feasible.
+        interflex, assign_test = maximize_interagent_flex(stn, current_alpha)
+        if interflex is None:
+            lower_bound = current_alpha
+        else:
+            assignments = assign_test
+            upper_bound = current_alpha
+    if assignments is None:
+        return (None, None)
+    return current_alpha, assignments
+
 
 def wilson_flex(stn: STN):
     """ Calculate Wilson Flexibility Decoupling """
@@ -29,10 +87,19 @@ def wilson_flex(stn: STN):
     return pulp.value(prob.objective), assignments
 
 
-def synchrony_maximize(stn: STN):
-    """ Creates and sets up a Wilson LP to maximise interagent flexibility.
+def maximize_interagent_flex(stn: STN, alpha: float):
     """
-    prob, dual_events = _wilson_lp_setup(stn)
+    Create an LP problem to maximise interagent flexibility (the amount of
+    time between interagent bounds)
+
+    Args:
+        stn (STN): STN to use for identifying interagent synchronous
+            constraints.
+        alpha (float): Alpha to use for contingent bounds.
+    """
+    prob, duals = _wilson_lp_setup(stn)
+    apply_contingent_bounds(stn, prob, duals, alpha)
+
     synchrony_pairs = stn.interagent_edges.keys()
     # Create a set of synchrony points.
     synchrony_points = set()
@@ -41,23 +108,34 @@ def synchrony_maximize(stn: STN):
             synchrony_points.add(i)
         if not j in synchrony_points:
             synchrony_points.add(j)
-    print(synchrony_points)
     if synchrony_points == set():
         print("No synchrony points")
         return (None, None)
     # We only want to sum up the synchrony points.
-    prob_sum = sum([dual_events[(i, "+")] - dual_events[(i, "-")]
-                   for i in synchrony_points])
+    prob_sum = sum([duals[(i, "+")] - duals[(i, "-")]
+                    for i in synchrony_points])
     # Set the optimisation function.
     prob += prob_sum, "Maximise the flexibility of interagent constraints"
     prob.solve()
-    status = pulp.LpStatus[prob.status]
-    if status != "Optimal":
-        return (None, None)
-    # Retrieve assignments of each of the LP variables, in a format that makes
-    # sense for an STN.
-    assignments = _get_lp_assignments(prob)
-    return pulp.value(prob.objective), assignments
+    if pulp.LpStatus[prob.status] == "Optimal":
+        assignments = _get_lp_assignments(prob)
+        return (pulp.value(prob.objective), assignments)
+    return (None, None)
+
+
+def apply_contingent_bounds(stn: STN, prob, variables: dict, alpha: float):
+    """Apply the contingent constraints set by an alpha value"""
+
+    for (i, j), edge in list(stn.contingent_edges.items()):
+        p_ij = invcdf_norm(1.0-alpha*0.5, edge.mu, edge.sigma)
+        p_ji = -invcdf_norm(alpha*0.5, edge.mu, edge.sigma)
+
+        # Lund et al. LP (3)
+        con3 = (variables[(j, '+')] - variables[(i, '+')] == p_ij)
+        prob += con3
+        # Lund et al. LP (4)
+        con4 = (variables[(i, '-')] - variables[(j, '-')] == p_ji)
+        prob += con4
 
 
 def _wilson_lp_setup(stn: STN):
@@ -90,21 +168,18 @@ def _wilson_lp_setup(stn: STN):
     for i in vert_gen:
 
         dual_events[(i, "+")] = pulp.LpVariable("t_{}_p".format(i),
-            lowBound=None,
+            lowBound=-float(stn.get_edge_weight(i, 0)),
             upBound=float(stn.get_edge_weight(0, i))
         )
         dual_events[(i, "-")] = pulp.LpVariable("t_{}_n".format(i),
-            lowBound=-float(stn.get_edge_weight(0, i)),
-            upBound=None
+            lowBound=-float(stn.get_edge_weight(i, 0)),
+            upBound=float(stn.get_edge_weight(0, i))
         )
         # Add the constraint to the LpProblem
         # Note that the zero timepoint is automatically constrained to start at
         # zero because get_edge_weight returns 0 for (0, 0) connection.
         z_cons = dual_events[(i, "+")] >= dual_events[(i, "-")]
-        if i == 0:
-            print(dual_events[(i, "+")].upBound)
-            print(dual_events[(i, "-")].lowBound)
-        #prob += z_cons
+        prob += z_cons
     # Add constraints between min and maxes.
     for i, j in stn.edges.keys():
         # Wilson et al. Theorem 1 LP line 2.
@@ -114,10 +189,6 @@ def _wilson_lp_setup(stn: STN):
         weight_ji = max(min(stn.get_edge_weight(j, i), 10.0**40), -10.0**40)
         const_ji = (dual_events[(i, "+")] - dual_events[(j, "-")]
                     <= weight_ji)
-        print("<begin> Constraints")
-        print(const_ij)
-        print(const_ji)
-        print("<end> Constraints")
         prob += const_ij
         prob += const_ji
 
@@ -125,7 +196,9 @@ def _wilson_lp_setup(stn: STN):
 
 
 def _get_lp_assignments(prob):
-    """ Retrieves edge assignments from the Linear Program problem """
+    """Retrieves edge assignments from the Linear Program problem
+        Assignment dictionary is of the form {(event_id), [min, max]}.
+    """
     assignments = {}
     for v in prob.variables():
         try:
@@ -137,14 +210,14 @@ def _get_lp_assignments(prob):
             continue
         if sign_value == "p":
             try:
-                assignments[(0, event_num)][1] = v.varValue
+                assignments[(event_num)][1] = v.varValue
             except KeyError:
-                assignments[(0, event_num)] = [-float("inf"), v.varValue]
+                assignments[(event_num)] = [-float("inf"), v.varValue]
         elif sign_value == "n":
             try:
-                assignments[(0, event_num)][0] = v.varValue
+                assignments[(event_num)][0] = v.varValue
             except KeyError:
-                assignments[(0, event_num)] = [v.varValue, float("inf")]
+                assignments[(event_num)] = [v.varValue, float("inf")]
         else:
             print("Dual sign not recognised: {}".format(sign_value))
             continue
@@ -157,18 +230,21 @@ def get_decouple_constraints(stn, assignments):
 
     Args:
         stn (STN):
-        assignments (dict):
+        assignments (dict): Dict of the form {node_id: [min_time, max_time]}
+
+    Returns:
+        Returns a list of decoupling Edge objects.
     """
     z_constraints = set()
     for edge_tuple in assignments.items():
-        vert_from = edge_tuple[0][0]
+        #vert_from = edge_tuple[0][0]
         vert_to = edge_tuple[0][1]
 
         # Vert_from should always be 0, so we should be okay to assume such.
-        assert (vert_from == 0)
+        #assert (vert_from == 0)
 
-        min_val = assignments[(vert_from, vert_to)][0]
-        max_val = assignments[(vert_from, vert_to)][1]
+        min_val = assignments[(0, vert_to)][0]
+        max_val = assignments[(0, vert_to)][1]
         for inter in stn.interagent_edges.keys():
             new_edge = Edge(vert_from, vert_to, min_val, max_val)
             z_constraints.add(new_edge)

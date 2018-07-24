@@ -1,6 +1,4 @@
 import math
-import random
-import numpy as np
 
 from .distempirical import norm_sample
 
@@ -37,11 +35,19 @@ class Vertex(object):
     def __repr__(self):
         return "Vertex {} owned by agent {}".format(self.nodeID, self.ownerID)
 
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return (self.nodeID == other.nodeID and
+                self.ownerID == other.ownerID and
+                self.location == other.location and
+                self.executed == other.executed)
+
     # \brief Return a copy of this vertex (with identical IDs and
     #   execution, so beware).
     def copy(self):
-        newVert = Vertex(self.nodeID, self.localID,
-                         self.ownerID, self.location)
+        newVert = Vertex(self.nodeID, self.ownerID, self.location)
         if self.executed:
             newVert.execute()
         return newVert
@@ -92,6 +98,14 @@ class Edge(object):
         self.distribution = distribution
 
         self._sampled_time = 0
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return (self.i == other.i and self.j == other.j and
+                self.Cij == other.Cij and self.Cji == other.Cji and
+                self.distribution == other.distribution and
+                self._sampled_time == other._sampled_time)
 
     # \brief Return a ready-for-json dictionary of this constraint
     def for_json(self):
@@ -189,7 +203,7 @@ class Edge(object):
 class STN(object):
 
     # The Zero Timepoint.
-    Z_TIMEPOINT = Vertex(0, 0, None)
+    Z_TIMEPOINT = Vertex(0, None, None)
 
     # \brief STN constructor
     def __init__(self):
@@ -281,9 +295,9 @@ class STN(object):
     #                           of this
     #                           new subSTN, and so will all interagent edges
     #                           and tris.
-    def getAgentSubSTN(self, agent, includeZTimepoint):
+    def get_agent_substn(self, agent, includeZTimepoint):
         # Just get a subSTN where all the verts belong to one agent.
-        return self.getSubSTN(self.getAgentVerts(agent), includeZTimepoint)
+        return self.get_substn(self.getAgentVerts(agent), includeZTimepoint)
 
     ##
     # \fn getSubSTN
@@ -293,15 +307,8 @@ class STN(object):
     # @param vertexList         A List of Vertex objects that are part of the
     #                           STN.
     # @param includeZTimepoint  Boolean, do we want to add the Z-timepoint?
-
-    def getSubSTN(self, vertexList, includeZTimepoint):
+    def get_substn(self, vertexList, includeZTimepoint):
         subSTN = STN()
-
-        # TODO
-        # Edges currently only map between integers that represent
-        # vertices, for whatever reason. This seems like a bug.
-        # To prevent breaking everything, I've created a list of IDs.
-        # (This is currently functional)
         vertIDList = [v.nodeID for v in vertexList]
         if includeZTimepoint:
             vertIDList.append(0)
@@ -309,21 +316,19 @@ class STN(object):
         agentsFound = []
         for v in vertexList:
             subSTN.add_created_vertex(v.copy())
-            if not (v.ownerID in agentsFound and v.ownerID != None):
+            if not (v.ownerID in agentsFound and v.ownerID is not None):
                 agentsFound.append(v.ownerID)
 
         # Add and execute the zero timepoint if desired.
         if includeZTimepoint:
-            # TODO: Do we really want to copy the zero timepoint?
-            subSTN.add_created_vertex(STN.Z_TIMEPOINT.copy())
-            subSTN.execute(0)
+            subSTN.add_vertex(0, None, None)
         # Add all edges between vertices in the subSTN
         for e in self.get_all_edges():
             # Check if both ends of the edge are in the new subSTN
             if (e.i in vertIDList) and (e.j in vertIDList):
                 # TODO: should use copy()
-                subSTN.add_edge(e.i, e.j, -e.Cji, e.Cij,
-                                e.distribution, e.fake)
+                subSTN.add_created_edge(e.copy())
+                #subSTN.add_edge(e.i, e.j, -e.Cji, e.Cij, e.distribution)
 
         # Assign the agents used in the STN
         subSTN.agents = agentsFound
@@ -364,16 +369,18 @@ class STN(object):
     # @param fake         Flag for if the edge is fake
     # @post               A new edge, generated from the arguments is added to
     #                     the STN.
-
     def add_edge(self, i, j, Tmin, Tmax, distribution=None):
+        if i not in self.verts or j not in self.verts:
+            raise ValueError("Vertex pair does not exist")
         newEdge = Edge(i, j, Tmin, Tmax, distribution)
         self.edges[(i, j)] = newEdge
-        if distribution != None:
+        if distribution is not None:
             self.contingent_edges[(i, j)] = newEdge
             self.received_timepoints += [j]
             self.parent[j] = i
         elif self.get_vertex(i).ownerID != self.get_vertex(j).ownerID \
-                and self.get_vertex(i).ownerID is not None:
+                and self.get_vertex(i).ownerID is not None \
+                and self.get_vertex(j).ownerID is not None:
             self.interagent_edges[(i, j)] = newEdge
         else:
             self.requirement_edges[(i, j)] = newEdge
@@ -561,7 +568,7 @@ class STN(object):
     # @return Returns a float representing the weight from Node i to Node j.
     def get_edge_weight(self, i, j):
         e = self.get_edge(i, j)
-        if e == None:
+        if e is None:
             if i == j and i in self.verts:
                 return 0
             else:
