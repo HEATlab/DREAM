@@ -13,6 +13,7 @@ import numpy as np
 
 from libheat.plotting.plot_utils import framefilters
 from libheat.plotting.plot_arsc import plot_arsc_cross
+from libheat.plotting.plot_ara import plot_ara
 
 
 CM2INCH = 0.393701
@@ -48,16 +49,9 @@ def main():
         ax.set_title("ARSC Threshold Cross Section (m_SC = 0)")
         #plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
         plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True)
-        #sur = (full_df.loc[full_df["execution"] ==
-        #                   "drea-s"])
-        #drea = (full_df.loc[full_df["execution"] ==
-        #                   "drea"])
-        #ax.plot([0, 1], [sur["robustness"].mean()/drea["robustness"].mean() *
-        #                 100]*2)
-        #ax.plot([0, 1],
-        #        [sur["reschedule_freq"].mean()/drea["reschedule_freq"].mean() *
-        #         100]*2)
-
+    elif args.ara_threshold:
+        ax.set_title("DREA-AR Alternate")
+        plot_ara(full_df, ax=ax, plot_srea=True)
     if args.output is None:
         plt.show()
     else:
@@ -372,7 +366,6 @@ def clinic_ar_threshold(df):
     plt.xlabel("Allowable Risk Threshold")
     plt.ylabel("Percent Reduction from DREA")
     plt.title("Trade-offs Between Communication and Performance in AR")
-
     plt.show()
 
 
@@ -453,6 +446,7 @@ def parse_args():
     parser.add_argument("--syncvrobust", action="store_true")
     parser.add_argument("-s", "--reschedules", action="store_true")
     parser.add_argument("--arsi-threshold", action="store_true")
+    parser.add_argument("--ara-threshold", action="store_true")
     parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output file name")
     return parser.parse_args()

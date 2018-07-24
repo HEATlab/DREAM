@@ -6,6 +6,9 @@
 import matplotlib.pyplot as plt
 
 
+from .plot_utils import threshold_means
+
+
 X_AXIS_RANGE = (-0.02, 1.02)
 Y_AXIS_RANGE = (-10, 120)
 ERROR_FAC = 1.96
@@ -57,86 +60,60 @@ def plot_arsc_cross(df, **kwargs):
             arsc = df.loc[(df['execution'] == naming)
                         & (df["sc_threshold"] == sc_cut)]
 
-
-    srea_rob = srea["robustness"]
-    drea_rob = drea["robustness"]
-    arsc_rob = arsc["robustness"]
-
-
     if "threshold_range" in kwargs:
         thresholds = kwargs["threshold_range"]
     else:
         thresholds = [0.0, 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75, 1.0]
     # End setup ---------------------------------------------------------------
-    drea_res = drea["reschedule_freq"].mean()
-    drea_send = drea["send_freq"].mean()
-    drea_run = drea["runtime"].mean()
 
-    rob_means = []
-    stderrs = []
-    sends = []
-    sends_err = []
-    reschedules = []
-    reschedules_err = []
-    runtimes = []
-
-    for t in thresholds:
-        if using_sc:
-            try:
-                arsc_point = arsc.loc[arsc["sc_threshold"] == t]
-            except KeyError:
-                arsc_point = arsc.loc[arsc["si_threshold"] == t]
-        else:
-            arsc_point = arsc.loc[arsc["ar_threshold"] == t]
-
-        mean = arsc_point["robustness"].mean()/drea_rob.mean() * 100
-        rob_means.append(mean)
-        se = arsc_point["robustness"].sem() * 100
-        stderrs.append(se*ERROR_FAC)
-        send_dat = arsc_point["send_freq"].mean()/drea_send * 100
-        sends.append(send_dat)
-        send_err = arsc_point["send_freq"].sem() * 100
-        sends_err.append(send_err*ERROR_FAC)
-        res = arsc_point["reschedule_freq"].mean()/drea_res * 100
-        reschedules.append(res)
-        res_err = arsc_point["reschedule_freq"].sem() * 100
-        reschedules_err.append(res_err*ERROR_FAC)
-        runtime = arsc_point["runtime"].mean()/drea_run * 100
-        runtimes.append(runtime)
+    if using_sc:
+        try:
+            data = threshold_means(arsc, "sc_threshold", thresholds,
+                                   drea, error_fac=ERROR_FAC)
+        except KeyError:
+            data = threshold_means(arsc, "si_threshold", thresholds,
+                                   drea, error_fac=ERROR_FAC)
+    else:
+        data = threshold_means(arsc, "ar_threshold", thresholds,
+                               drea, error_fac=ERROR_FAC)
 
     #if using_sc:
     #    arsc_label = "ARSC ".format(ar_cut)
     #else:
     #    arsc_label = "ARSC ".format(sc_cut)
     arsc_label = "ARSC "
+    srea_rob = srea["robustness"].mean()
+    drea_rob = drea["robustness"].mean()
     if "ax" in kwargs:
         ax = kwargs["ax"]
-        ax.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
+        ax.errorbar(thresholds, data.robs, yerr=data.robs_err,
+                    linestyle='-',
                      capsize=4, linewidth=1,
                      label=arsc_label + "Robustness")
         if using_sc:
-            ax.errorbar(thresholds, sends, yerr=sends_err, linestyle='-.',
+            ax.errorbar(thresholds, data.sends, yerr=data.sends_err,
+                        linestyle='-.',
                         linewidth=1,
                         capsize=4,
                         label=arsc_label + "Sent Schedules")
         else:
-            ax.errorbar(thresholds, reschedules, linestyle='-.',
-                        yerr=reschedules_err, linewidth=1,
+            ax.errorbar(thresholds, data.res, linestyle='-.',
+                        yerr=data.res_err, linewidth=1,
                         capsize=4,
                         label=arsc_label + "Reschedules")
-        ax.plot(thresholds, runtimes, linestyle=':', linewidth=1,
+        ax.plot(thresholds, data.runtimes, linestyle=':', linewidth=1,
                  label=arsc_label + "Runtime")
 
         try:
             if kwargs["plot_srea"]:
-                ax.plot([0.0, 1.0], [srea["robustness"].mean()
-                                     /drea_rob.mean()*100]*2,
+                ax.plot([0.0, 1.0], [srea_rob/drea_rob*100]*2,
                         dashes=(4, 3, 2, 3),
                         label="SREA Robustness",
                         color="k",
                         linewidth=1)
         except KeyError:
             pass
+
 
         #ax.legend(loc="lower center")
         ax.legend(loc="lower left")
@@ -149,12 +126,12 @@ def plot_arsc_cross(df, **kwargs):
         ax.set_xlim(X_AXIS_RANGE)
         ax.set_ylim(Y_AXIS_RANGE)
     else:
-        plt.errorbar(thresholds, rob_means, yerr=stderrs, linestyle='-',
+        plt.errorbar(thresholds, data.robs, yerr=data.robs_err, linestyle='-',
                      capsize=4, linewidth=1,
                      label=arsc_label + "Robustness")
-        plt.plot(thresholds, sends, linestyle='-.', linewidth=1,
+        plt.plot(thresholds, data.sends, linestyle='-.', linewidth=1,
                  label=arsc_label + "Sent Schedules")
-        plt.plot(thresholds, runtimes, linestyle=':', linewidth=1,
+        plt.plot(thresholds, data.runtimes, linestyle=':', linewidth=1,
                  label=arsc_label + "Runtime")
 
         plt.legend(loc="lower center")
