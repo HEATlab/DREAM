@@ -130,9 +130,11 @@ class DecoupledSimulator(Simulator):
 
             self._current_time = next_time
         pr.verbose("Assignments: " + str(self.get_assigned_times()))
-        pr.verbose("Successful!")
         assignment_check = self.propagate_constraints(self.assignment_stn)
-        assert (self.propagate_constraints(self.assignment_stn))
+        if not self.propagate_constraints(self.assignment_stn):
+            pr.warning("False positive: assigned all events, but was not a"
+                       " solution.")
+            return False
         return True
 
     def assign_timepoint(self, stn, vert_id, time):
