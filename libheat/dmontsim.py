@@ -38,11 +38,14 @@ class DecoupledSimulator(Simulator):
         # Create the decoupled substns
         substns = self._instantiate_subproblems(self.stn)
 
+        if substns is None:
+            pr.verbose("Failed to decouple, falling back to early exec.")
+
         # Setup options
         first_run = True
         options = [{"first_run": True,
                    "executed_contingent": False,
-                   "executed_time": 0.0} for i in range(len(substns))]
+                   "executed_time": 0.0} for i in range(len(self.stn.agents))]
 
         # Setup default guide settings
         guides = [self.stn]*len(self.stn.agents)
@@ -52,7 +55,7 @@ class DecoupledSimulator(Simulator):
         while not self.all_assigned():
             # Update the options so that first_run is only true when it's the
             # actual first run.
-            for i in range(len(substns)):
+            for i in range(len(self.stn.agents)):
                 options[i]["first_run"] = first_run
 
             if first_run:
@@ -61,12 +64,18 @@ class DecoupledSimulator(Simulator):
             # Calculate the guide STN.
             pr.vverbose("Getting Guide...")
             functiontimer.start("get_guide")
-            for i, sub in enumerate(substns):
-                current_alpha, guide_stn = self.get_guide(sub,
-                                                          current_alpha,
-                                                          guides[i],
-                                                          options=options[i])
-                guides[i] = guide_stn
+            if substns is not None:
+                for i, sub in enumerate(substns):
+                    current_alpha, guide_stn = self.get_guide(
+                        sub,
+                        current_alpha,
+                        guides[i],
+                        options=options[i])
+                    guides[i] = guide_stn
+            else:
+                for i in range(len(self.stn.agents)):
+                    # Use early first as a fallback.
+                    guides[i] = self._early_first_guide()
             functiontimer.stop("get_guide")
             pr.vverbose("Got guide")
 
@@ -98,9 +107,10 @@ class DecoupledSimulator(Simulator):
             for guide_stn in guides:
                 if next_vert_id in guide_stn.verts:
                     self.assign_timepoint(guide_stn, next_vert_id, next_time)
-            for substn in substns:
-                if next_vert_id in substn.verts:
-                    self.assign_timepoint(substn, next_vert_id, next_time)
+            if substns is not None:
+                for substn in substns:
+                    if next_vert_id in substn.verts:
+                        self.assign_timepoint(substn, next_vert_id, next_time)
             self.assign_timepoint(self.stn, next_vert_id, next_time)
             self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
             functiontimer.start("propagation & check")
@@ -190,6 +200,9 @@ class DecoupledSimulator(Simulator):
             pr.verbose("DREA Rescheduled, new alpha: {}".format(ans[0]))
             return ans
         return previous_alpha, previous_guide
+
+    def _early_first_guide(self):
+        return self.stn
 
     def _instantiate_subproblems(self, stn):
         """Returns a list of decoupled subproblems"""
