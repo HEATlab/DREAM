@@ -3,7 +3,7 @@ import unittest
 
 import libheat.optdecouple as optdecouple
 import libheat.stntools as stntools
-from libheat.montsim_decoupled import DecoupledSimulator
+from libheat.dmontsim import DecoupledSimulator
 
 
 STN1 = "test_data/two_agent_sync.json"
