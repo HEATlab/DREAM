@@ -163,6 +163,28 @@ def _print_results(results_dict, i, num_paths):
 def multiple_simulations(starting_stn, execution_strat,
                          count, threads=1, random_seed=None,
                          sim_options={}):
+    """Run multiple simulations on a single STN.
+
+    Args:
+        starting_stn (STN): STN to simulate on.
+        execution_strat (str): Execution strategy to simulate with.
+        count (int): Number of simulations to run.
+        threads (int, optional): Number of threads to use.
+        random_seed (int, optional): The random seed to use. Generates new
+            seeds from this instance. None indicates a random random-seed.
+        sim_options (dict): A set of options (usually thresholds) for the
+            simulator.
+
+    Returns:
+        A response dictionary with three entries in it.
+
+    The response dictionary contains the following keys:
+
+    * "sample_results": A list of bools of how the simulations went.
+    * "reschedules": A list of ints counting how many reschedules a sim took.
+    * "sent_schedules": A list of ints counting how many schedules were sent
+      for each sim.
+    """
     # Each thread needs its own simulator, otherwise the progress of one thread
     # can overwrite the progress of another
     print("Random seed is: {}".format(random_seed))
@@ -172,20 +194,20 @@ def multiple_simulations(starting_stn, execution_strat,
         if execution_strat == "da":
             tasks = [(DecoupledSimulator(seeds[i]), starting_stn,
                       execution_strat,
-                      sim_options)
+                      sim_options, i)
                      for i in range(count)]
         else:
             tasks = [(Simulator(seeds[i]), starting_stn, execution_strat,
-                      sim_options)
+                      sim_options, i)
                      for i in range(count)]
     else:
         if execution_strat == "da":
             tasks = [(DecoupledSimulator(None), starting_stn, execution_strat,
-                      sim_options)
+                      sim_options, i)
                      for i in range(count)]
         else:
             tasks = [(Simulator(None), starting_stn, execution_strat,
-                      sim_options)
+                      sim_options, i)
                      for i in range(count)]
     if threads > 1:
         print("Using multithreading; threads = {}".format(threads))
@@ -227,6 +249,7 @@ def _multisim_thread_helper(tup):
         ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
     reschedule_count = simulator.num_reschedules
     sent_count = simulator.num_sent_schedules
+    pr.verbose("Task: {}".format(tup[4]))
     pr.verbose("Assigned Times: {}".format(simulator.get_assigned_times()))
     pr.verbose("Successful?: {}".format(ans))
     return ans, reschedule_count, sent_count
@@ -237,8 +260,9 @@ def folder_harvest(folder_paths: list, recurse=True, only_json=True) -> list:
 
     Args:
         folder_paths (list): List of strings that represent file/folder paths.
-        recursive (:obj:bool, optional): Boolean indicating whether to recurse
-            into directories.
+        recursive (:obj:`bool`, optional): Boolean indicating whether to
+            recurse into directories.
+
     Returns:
         Returns a flat list of STN paths.
     """
