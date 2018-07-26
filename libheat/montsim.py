@@ -21,20 +21,19 @@ class Simulator(object):
         self.num_sent_schedules = 0
 
     def simulate(self, starting_stn, execution_strat, sim_options={}):
-        ''' Run one simulation.
+        '''Run one simulation.
 
         Args:
-            starting_stn: The STN used to run in the simulation.
-            execution_strat: String representing the strategy to use for
-                timepoint execution. Acceptable execution strategies include--
+            starting_stn (STN): The STN used to run in the simulation.
+            execution_strat (str): The strategy to use for timepoint execution.
+                Acceptable execution strategies include--
                 "early",
                 "drea",
-                "d-drea",
                 "drea-si",
-                "drea-ar"
-
-        Keyword Args:
-            sim_options: A dictionary of possible options to pass into the
+                "drea-ar",
+                "arsi"
+            sim_options (dict, optional): A dictionary of possible options to
+                pass into the simulator.
 
         Returns:
             Boolean indicating whether the simulation was successful or not.
@@ -107,6 +106,8 @@ class Simulator(object):
             options["guide_min"] = -guide_stn.get_edge_weight(next_vert_id, 0)
 
             # Propagate constraints (minimise) and check consistency.
+            pr.verbose("Prior to placement STN:\n{}".format(self.stn))
+            pr.verbose("guide STN:\n{}".format(guide_stn))
             self.assign_timepoint(guide_stn, next_vert_id, next_time)
             self.assign_timepoint(self.stn, next_vert_id, next_time)
             self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
@@ -132,7 +133,7 @@ class Simulator(object):
         return True
 
     def select_next_timepoint(self, dispatch, current_time):
-        """ Retrieves the earliest possible vert.
+        """Retrieves the earliest possible vert.
         Ties are broken arbitrarily.
 
         Args:
@@ -203,11 +204,15 @@ class Simulator(object):
                 has_incoming_contingent)
 
     def assign_timepoint(self, stn, vert_id, time):
-        """ Assigns a timepoint to specified time
+        """Assigns a timepoint to specified time
 
         Args:
-            vert: Node to assign.
-            time: float: Time to assign this vert.
+            stn (STN): STN to assign on.
+            vert_id (int): Node to assign.
+            time (float): Time to assign to this vert.
+
+        Post:
+            stn is modified in-place to have an assigned vertex.
         """
         if vert_id != Z_NODE_ID:
             stn.update_edge(Z_NODE_ID,
@@ -231,7 +236,10 @@ class Simulator(object):
         return ans
 
     def all_assigned(self) -> bool:
-        """ Check if all vertices of the STN have been assigned
+        """ Check if all vertices of the STN have been executed.
+        Returns:
+            Boolean indicated whether all vertices in the assignment STN have
+            been executed.
         """
         for vert in self.assignment_stn.get_all_verts():
             if not vert.is_executed():
@@ -252,10 +260,12 @@ class Simulator(object):
                 stn.remove_vertex(v_id)
 
     def resample_stored_stn(self) -> None:
+        """Resample the stored STN contingent edges (self.stn)"""
         for e in self.stn.contingent_edges.values():
             e.resample(self._rand_state)
 
     def get_assigned_times(self) -> dict:
+        """Return when each timepoint in the simulation was assigned"""
         times = {}
         for key, v in self.assignment_stn.verts.items():
             if v.is_executed():
@@ -268,17 +278,16 @@ class Simulator(object):
                   previous_guide, options={}) -> tuple:
         """ Retrieve a guide STN (dispatch) based on the execution strategy
         Args:
-            execution_strat: String representing the execution strategy.
-            previous_: The previously used guide STN's alpha.
-            previous_guide: The previously used guide STN.
-
-        Keyword Args:
-            options: Dictionary of possible options to use for the algorithms.
+            execution_strat (str): String representing the execution strategy.
+            previous_alpha (float): The previously used guide STN's alpha.
+            previous_guide (STN): The previously used guide STN.
+            options (dict, optional): Dictionary of possible options to use for
+                the algorithms.
 
         Return:
             Returns a tuple with format:
-            [0]: Alpha of the guide.
-            [1]: dispatch (type STN) which the simulator should follow,
+            | [0]: Alpha of the guide.
+            | [1]: dispatch (type STN) which the simulator should follow,
         """
         if execution_strat == "early":
             return 1.0, self.stn
