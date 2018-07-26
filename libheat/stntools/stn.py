@@ -253,8 +253,10 @@ class STN(object):
                 if self.get_vertex(j).is_executed():
                     toPrint += " Ex"
             else:
-                toPrint += "Edge {} => {}: [{}, {}]".format(edge.i, edge.j,
-                                                            -edge.Cji, edge.Cij)
+                toPrint += "Edge {} => {}: [{}, {}]".format(
+                    edge.i, edge.j, -edge.Cji, edge.Cij)
+                if edge.distribution is not None:
+                    toPrint += " ({})".format(edge.distribution)
             toPrint += "\n"
         return toPrint
 

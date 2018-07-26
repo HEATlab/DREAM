@@ -82,6 +82,13 @@ class DecoupledSimulator(Simulator):
             # Select the next timepoint.
             pr.vverbose("Selecting timepoint...")
             functiontimer.start("selection")
+
+            # We do this weird new_selection switch so that we select the
+            # earliest timepoint from *all* of the guides, not just any one
+            # guide.
+            # The "selection" variable represents the earliest selection we
+            # make, which holds the id, the time, and whether it was
+            # contingent.
             selection = None
             for i, guide_stn in enumerate(guides):
                 new_selection = self.select_next_timepoint(guide_stn,
@@ -102,15 +109,20 @@ class DecoupledSimulator(Simulator):
             next_time = selection[1]
             executed_contingent = selection[2]
 
-
             # Propagate constraints (minimise) and check consistency.
             for guide_stn in guides:
                 if next_vert_id in guide_stn.verts:
                     self.assign_timepoint(guide_stn, next_vert_id, next_time)
             if substns is not None:
-                for substn in substns:
+                for i, substn in enumerate(substns):
                     if next_vert_id in substn.verts:
+                        #print("For substn {}...".format(i))
+                        #print("Assignments: {} to {}".format(next_vert_id,
+                        #                                     next_time))
                         self.assign_timepoint(substn, next_vert_id, next_time)
+                        #print("After assignment:\n{}".format(substn))
+            pr.verbose("Prior to placement STN:\n{}".format(self.stn))
+            [pr.verbose("guide STN:\n{}".format(g)) for g in guides]
             self.assign_timepoint(self.stn, next_vert_id, next_time)
             self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
             functiontimer.start("propagation & check")
@@ -120,13 +132,36 @@ class DecoupledSimulator(Simulator):
                 pr.verbose("Assignments: " + str(self.get_assigned_times()))
                 pr.verbose("Failed to place point {}, at {}"
                            .format(next_vert_id, next_time))
+                pr.verbose("Prior to placement STN:\n{}".format(self.stn))
                 return False
             self.stn = stn_copy
+            for i, sub in enumerate(substns):
+                sub_copy = sub.copy()
+                subcons = self.propagate_constraints(sub_copy)
+                if subcons:
+                    sub = sub_copy
+                else:
+                    # The substn is not consistent, but the whole STN is.
+                    # This means we do not want to follow the SREA guide any
+                    # further. A smart decision here would to now ignore
+                    # decoupling constraints, and try to solve the STN locally.
+                    # But this is too much effort for this algorithm.
+                    # Return failure prematurely instead, and spit out a
+                    # warning.
+                    pr.warning("Whole STN was consistent, but substn was not.")
+                    return False
             pr.vverbose("Done propagating our STN")
             functiontimer.stop("propagation & check")
 
+            #print("Full STN:\n{}".format(self.stn))
+            #for i, s in enumerate(substns):
+                #print("Substn {}:\n{}".format(i, s))
+
             # Clean up the STN
             self.remove_old_timepoints(self.stn)
+            if substns is not None:
+                for sub in substns:
+                    self.remove_old_timepoints(sub)
 
             self._current_time = next_time
         pr.verbose("Assignments: " + str(self.get_assigned_times()))
@@ -185,7 +220,13 @@ class DecoupledSimulator(Simulator):
             STN here.
         """
         self.num_reschedules += 1
-        result = srea.srea(stn)
+        try:
+            result = srea.srea(stn)
+        except Exception as e:
+            #print(e)
+            #print("This was the STN that broke SREA:\n"+str(stn))
+            srea.srea(stn, debugLP=True)
+            #raise AssertionError()
         if result is not None:
             self.num_sent_schedules += 1
             return result[0], result[1]
