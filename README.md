@@ -2,7 +2,15 @@
 
 New version of the robotbrunch codebase.
 
-Requirements to run are stored in [requirements.txt](requirements.txt)
+Requirements (python packages) to run are listed in
+[requirements.txt](requirements.txt).
+
+
+To generate Sphinx autodoc documentation:
+1. Go to [docs](docs/)
+2. Run `make html`.
+3. Open the index now generated at `docs/build/html/index.html` using your
+   favourite web browser.
 
 This code is copyright of Harvey Mudd College's HEATlab.
 
