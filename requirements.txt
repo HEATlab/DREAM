@@ -1,4 +1,4 @@
-PuLP>=1.16.2
+PuLP>=1.6.2
 matplotlib>=2.2.2
 flake8>=3.5.0
 numpy>=1.14.5
