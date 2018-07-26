@@ -3,3 +3,5 @@ __pycache__
 *.lp
 *.pyc
 *.bak
+docs/build
+.idea
