@@ -1,8 +1,8 @@
-PuLP>=1.16.2
+PuLP>=1.6.2
 matplotlib>=2.2.2
 flake8>=3.5.0
-numpy>=1.14.5
-scipy>=1.1.0
+numpy==1.14.5
+scipy==1.1.0
 autopep8>=1.3.5
 Sphinx>=1.7.5
 sphinx_rtd_theme>=0.4.0
