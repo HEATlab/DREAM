@@ -14,11 +14,13 @@ import numpy as np
 from libheat.plotting.plot_utils import framefilters
 from libheat.plotting.plot_arsc import plot_arsc_cross
 from libheat.plotting.plot_ara import plot_ara
+from libheat.plotting.plot_syncvrobust import plot_syncvrobust
+from libheat.plotting.dream_details import dream_table
 
 
 CM2INCH = 0.393701
-DEFAULT_WIDTH = 20
-DEFAULT_HEIGHT = 12
+DEFAULT_WIDTH = 16
+DEFAULT_HEIGHT = 11
 
 
 def main():
@@ -32,7 +34,7 @@ def main():
             full_df = pd.read_csv(f, header=0)
         else:
             df = pd.read_csv(f, header=0)
-            full_df = full_df.append(df, ignore_index=True)
+            full_df = full_df.append(df, ignore_index=True, sort=True)
 
     # Filter the samples
     full_df = framefilters(full_df)
@@ -42,16 +44,20 @@ def main():
     ax.tick_params(bottom=True, top=True, left=True, right=True)
 
     if args.syncvrobust:
-        sync_v_robust(full_df, errorbars=True)
+        plot_syncvrobust(full_df, errorbars=True)
     elif args.reschedules:
         plot_threshold(full_df, "si")
     elif args.arsi_threshold:
-        ax.set_title("ARSC Threshold Cross Section (m_SC = 0)")
-        #plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
-        plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True)
+        ax.set_title("DREAM Threshold SC Analysis (m_AR = 1)")
+        plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
+        #ax.set_title("DREAM Threshold AR Analysis (m_SC = 0)")
+        #plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True)
     elif args.ara_threshold:
         ax.set_title("DREA-AR Alternate")
         plot_ara(full_df, ax=ax, plot_srea=True)
+    elif args.table:
+        dream_table(full_df)
+        return
     if args.output is None:
         plt.show()
     else:
@@ -159,82 +165,6 @@ def sd_v_robust(df):
     plt.ylabel("Robustness")
     plt.xlabel("Standard Deviation of Contingent Edges")
     plt.title("Edge Standard Deviation vs. Performance")
-    plt.show()
-
-
-def sync_v_robust(df, errorbars=True, executions=None, thresholds=None):
-    """Plot Sychronisation vs. Performance
-
-    X axis: Degree of Synchronisation
-    Y axis: Robustness (in percent)
-
-    Error bars: Standard error extracted from the robustnesses of the STNs.
-        Each STN is considered a datum.
-
-    Args:
-        df (DataFrame): DataFrame of results to be passed. Must have a
-            "sync_deg" column.
-        errorbars (boolean, optional): Should the plot have error bars? Default
-            True
-        executions (list, optional): List of strings of execution strats to
-            plot. Default ["early", "srea", "drea"]
-        thresholds (list, optional): List of floats of threshold values to
-            plot. Default [0.0, 0.5, 1.0]
-    """
-    # Executions we care about.
-    if executions is None:
-        executions = ["early", "srea", "drea"]
-    if thresholds is None:
-        thresholds = [0.0, 0.5, 1.0]
-    # Make use of that degree of synchrony we added in framefilters()
-    x_values = sorted(df["sync_deg"].unique().tolist())
-    # Store y values. Is of the format {execution: list of y values}
-    data_y = {}
-    # Store error bars. Is of the format {execution: list of error bars}
-    data_err = {}
-    # Iterate through every execution strategy we care about.
-    for ex in executions:
-        runs = df.loc[df["execution"] == ex]
-        for x in x_values:
-            run_deg = runs.loc[runs["sync_deg"] == x]
-            if ex != "drea-si" and ex != "drea-ar":
-                run_series = run_deg["robustness"]  # Get robustness.
-                mean = run_series.mean()
-                err = run_series.sem()  # Standard error bar.
-                if ex in data_y:
-                    data_y[ex].append(mean*100)
-                    data_err[ex].append(err*100)
-                else:
-                    data_y[ex] = [mean*100]
-                    data_err[ex] = [err*100]
-            else:
-                for t in thresholds:
-                    thresh_series = run_deg.loc[run_deg["threshold"]
-                                                == t]["robustness"]
-                    mean = thresh_series.mean()
-                    err = thresh_series.sem()
-                    label = ex + "_" + str(t)  # Make a unique label for each
-                    if label in data_y:
-                        data_y[label].append(mean*100)
-                        data_err[label].append(err*100)
-                    else:
-                        data_y[label] = [mean*100]
-                        data_err[label] = [err*100]
-    linestyles = ["-", "--", ":", "-."]
-    for i, label in enumerate(data_y.keys()):
-        if errorbars:
-            plt.errorbar(x_values, data_y[label], yerr=data_err[label],
-                         linewidth=1, label=label, capsize=3,
-                         linestyle=linestyles[i % len(linestyles)])
-        else:
-            plt.plot(x_values, data_y[label], linewidth=1, label=label,
-                         linestyle=linestyles[i % len(linestyles)])
-    plt.ylim(0, 100)
-    plt.xlim(0, 25)
-    plt.legend()
-    plt.ylabel("Robustness (%)")
-    plt.xlabel("Degree of Synchronization (sec)")
-    plt.title("Degree of Synchronization vs. Performance")
     plt.show()
 
 
@@ -447,6 +377,7 @@ def parse_args():
     parser.add_argument("-s", "--reschedules", action="store_true")
     parser.add_argument("--arsi-threshold", action="store_true")
     parser.add_argument("--ara-threshold", action="store_true")
+    parser.add_argument("--table", action="store_true")
     parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output file name")
     return parser.parse_args()

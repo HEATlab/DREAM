@@ -15,7 +15,7 @@ ERROR_FAC = 1.96
 
 
 def plot_arsc_cross(df, **kwargs):
-    """ Plot ARSC algorithm crossection.
+    """Plot ARSC algorithm crossection.
     Args:
         df (DataFrame): DataFrame object to read from.
         **kwargs:
@@ -81,7 +81,7 @@ def plot_arsc_cross(df, **kwargs):
     #    arsc_label = "ARSC ".format(ar_cut)
     #else:
     #    arsc_label = "ARSC ".format(sc_cut)
-    arsc_label = "ARSC "
+    arsc_label = "DREAM "
     srea_rob = srea["robustness"].mean()
     drea_rob = drea["robustness"].mean()
     if "ax" in kwargs:
@@ -115,8 +115,7 @@ def plot_arsc_cross(df, **kwargs):
             pass
 
 
-        #ax.legend(loc="lower center")
-        ax.legend(loc="lower left")
+        ax.legend(loc="lower left", framealpha=0.2)
         #ax.title(arsc_label+"Cross Section")
         if using_sc:
             ax.set_xlabel("SC Threshold")
