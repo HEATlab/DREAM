@@ -1,7 +1,7 @@
 import unittest
 
 
-import libheat.optdecouple as optdecouple
+import libheat.decoupling.optdecouple as optdecouple
 import libheat.stntools as stntools
 from libheat.dmontsim import DecoupledSimulator
 

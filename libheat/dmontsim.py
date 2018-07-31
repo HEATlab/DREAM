@@ -2,7 +2,8 @@ import numpy as np
 
 
 from .montsim import Simulator
-from . import optdecouple
+from .decoupling import optdecouple
+from .decoupling import sreadecouple
 from . import srea
 from . import functiontimer
 from . import printers as pr
@@ -13,11 +14,14 @@ Z_NODE_ID = 0
 
 class DecoupledSimulator(Simulator):
 
-    def simulate(self, starting_stn, sim_options={}) -> bool:
+    def simulate(self, starting_stn, decouple_type="opt_inter",
+                 sim_options={}) -> bool:
         """Run one simulation.
 
         Args:
             starting_stn (:obj:`STN`): The STN used to run in the simulation.
+            decouple_type (str): The decoupling strategy. Default is
+                "opt_inter". "srea" is also an acceptable input.
             sim_options (:obj:`dict`, optional): A dictionary of possible
                 options to pass into the
 
@@ -35,7 +39,8 @@ class DecoupledSimulator(Simulator):
         pr.verbose("Resampling Stored STN")
         self.resample_stored_stn()
         # Create the decoupled substns
-        substns = self._instantiate_subproblems(self.stn)
+        substns = self._instantiate_subproblems(self.stn,
+            decouple_type=decouple_type)
 
         if substns is None:
             pr.verbose("Failed to decouple, falling back to early exec.")
@@ -120,8 +125,6 @@ class DecoupledSimulator(Simulator):
                         #                                     next_time))
                         self.assign_timepoint(substn, next_vert_id, next_time)
                         #print("After assignment:\n{}".format(substn))
-            pr.verbose("Prior to placement STN:\n{}".format(self.stn))
-            [pr.verbose("guide STN:\n{}".format(g)) for g in guides]
             self.assign_timepoint(self.stn, next_vert_id, next_time)
             self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
             functiontimer.start("propagation & check")
@@ -131,26 +134,26 @@ class DecoupledSimulator(Simulator):
                 pr.verbose("Assignments: " + str(self.get_assigned_times()))
                 pr.verbose("Failed to place point {}, at {}"
                            .format(next_vert_id, next_time))
-                pr.verbose("Prior to placement STN:\n{}".format(self.stn))
                 return False
             self.stn = stn_copy
-            for i, sub in enumerate(substns):
-                sub_copy = sub.copy()
-                subcons = self.propagate_constraints(sub_copy)
-                if subcons:
-                    sub = sub_copy
-                else:
-                    # The substn is not consistent, but the whole STN is.
-                    # This means we do not want to follow the SREA guide any
-                    # further. A smart decision here would to now ignore
-                    # decoupling constraints, and try to solve the STN locally.
-                    # But this is too much effort for this algorithm.
-                    # Return failure prematurely instead, and spit out a
-                    # warning.
-                    pr.warning("Whole STN was consistent, but substn was not.")
-                    return False
-            pr.vverbose("Done propagating our STN")
-            functiontimer.stop("propagation & check")
+            if substns is not None:
+                for i, sub in enumerate(substns):
+                    sub_copy = sub.copy()
+                    subcons = self.propagate_constraints(sub_copy)
+                    if subcons:
+                        sub = sub_copy
+                    else:
+                        # The substn is not consistent, but the whole STN is.
+                        # This means we do not want to follow the SREA guide
+                        # any further. A smart decision here would to now
+                        # ignore decoupling constraints, and try to solve the
+                        # STN locally. But this is too much effort for this
+                        # algorithm. Return failure prematurely instead, and
+                        # spit out a warning.
+                        pr.warning("Whole STN was consistent, but substn was not.")
+                        return False
+                pr.vverbose("Done propagating our STN")
+                functiontimer.stop("propagation & check")
 
             #print("Full STN:\n{}".format(self.stn))
             #for i, s in enumerate(substns):
@@ -247,9 +250,16 @@ class DecoupledSimulator(Simulator):
     def _early_first_guide(self):
         return self.stn
 
-    def _instantiate_subproblems(self, stn):
+    def _instantiate_subproblems(self, stn, decouple_type="opt_inter"):
         """Returns a list of decoupled subproblems"""
-        alpha, subproblems = optdecouple.decouple_agents(stn, fidelity=0.005)
+        if decouple_type == "opt_inter":
+            alpha, subproblems = optdecouple.decouple_agents(stn,
+                                                             fidelity=0.005)
+        elif decouple_type == "srea":
+            alpha, subproblems = sreadecouple.decouple_agents(stn)
+        else:
+            raise ValueError(("decouple_type {} not"
+                              + " found.").format(decouple_type))
         return subproblems
 
     def remaining_contingent_count(self, stn):

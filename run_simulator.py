@@ -32,7 +32,9 @@ from libheat import sim2csv
 
 
 MAX_SEED = 2**32
-
+"""The maximum number a random seed can be."""
+DEFAULT_DECOUPLE = "srea"
+"""The default decoupling type for DecoupledSimulator"""
 
 def main():
     args = parse_args()
@@ -224,7 +226,6 @@ def multiple_simulations(starting_stn, execution_strat,
                 pr.warning("Retrying in 3 seconds...")
                 time.sleep(3.0)
                 pr.warning("Retrying now")
-
     else:
         print("Using single thread; threads = {}".format(threads))
         response = list(map(_multisim_thread_helper, tasks))
@@ -244,7 +245,8 @@ def _multisim_thread_helper(tup):
     """
     simulator = tup[0]
     if tup[2] == "da":
-        ans = simulator.simulate(tup[1], sim_options=tup[3])
+        ans = simulator.simulate(tup[1], sim_options=tup[3],
+                                 decouple_type=DEFAULT_DECOUPLE)
     else:
         ans = simulator.simulate(tup[1], tup[2], sim_options=tup[3])
     reschedule_count = simulator.num_reschedules

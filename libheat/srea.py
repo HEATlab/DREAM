@@ -1,3 +1,10 @@
+""" Contains the core of the SREA algorithm.
+
+This file is mostly unchanged from the original RobotBrunch code.
+
+Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
+"""
+
 import json
 import re
 import sys
@@ -260,65 +267,65 @@ def srea_LP(inputstn,
         return None
     return bounds
 
-# \fn getRobustness(stn)
-#  \brief Calls the rust simulator to compute the robustness of the input STN
-#  NOTE: This is now depracated
-
-
-def getRobustness(stn):
-    tempstn = 'json/temp.json'
-
-    with open(tempstn, 'w+') as f:
-        json.dump(stn.forJSON(), f, indent=2, separators=(',', ':'))
-
-    # Find the robustness of the decoupling
-    simulation = Popen(['../stpsimulator/target/release/simulator_stp',
-                        '--samples', str(10000),
-                        '--threads', '4',
-                        '--sample_directory', '../stpsimulator/samples/',
-                        tempstn],
-                       stdout=PIPE, stderr=PIPE)
-    simulation.wait()
-
-    dataRegex = re.compile(r'result:\n([0-9\.]+)')
-
-    # extract the robustness from simulator output
-    simData = simulation.stdout.read()
-    match = dataRegex.search(simData)
-
-    # simulator failed -- 0 robustness
-    if match is None:
-        return 0
-
-    return float(match.group(1))
-
-
-# \fn getDispatch(stn)
-#  \brief performs srea on the given STN
+## \fn getRobustness(stn)
+##  \brief Calls the rust simulator to compute the robustness of the input STN
+##  NOTE: This is now depracated
 #
-#  \returns STN that represents the dispatch strategy
-def getDispatch(stn, invCDF_map):
-
-    output = srea(stn, invCDF_map)
-
-    if output != None:
-        alpha, stn = output
-        # print getRobustness(stn)
-        stn.minimize()
-        for (i, j), edge in list(stn.contingent_edges.items()):
-            edge_i = stn.getEdge(0, i)
-            edge_j = stn.getEdge(0, j)
-            edge.Cij = edge_j.getWeightMax()-edge_i.getWeightMax()
-            edge.Cji = - (edge_j.getWeightMin()-edge_i.getWeightMin())
-            # this loop ensures that the output STN with integer edge weights is still
-            # strongly controllable
-            for connected_edge in stn.getOutgoing(j):
-                edge.Cji = -max(-edge.Cji, edge.Cij -
-                                connected_edge.Cji-connected_edge.Cij)
-        return stn
-
-    print("srea did not result in a feasible LP, please try again with a different STN")
-    return None
+#
+#def getRobustness(stn):
+#    tempstn = 'json/temp.json'
+#
+#    with open(tempstn, 'w+') as f:
+#        json.dump(stn.forJSON(), f, indent=2, separators=(',', ':'))
+#
+#    # Find the robustness of the decoupling
+#    simulation = Popen(['../stpsimulator/target/release/simulator_stp',
+#                        '--samples', str(10000),
+#                        '--threads', '4',
+#                        '--sample_directory', '../stpsimulator/samples/',
+#                        tempstn],
+#                       stdout=PIPE, stderr=PIPE)
+#    simulation.wait()
+#
+#    dataRegex = re.compile(r'result:\n([0-9\.]+)')
+#
+#    # extract the robustness from simulator output
+#    simData = simulation.stdout.read()
+#    match = dataRegex.search(simData)
+#
+#    # simulator failed -- 0 robustness
+#    if match is None:
+#        return 0
+#
+#    return float(match.group(1))
+#
+#
+## \fn getDispatch(stn)
+##  \brief performs srea on the given STN
+##
+##  \returns STN that represents the dispatch strategy
+#def getDispatch(stn, invCDF_map):
+#
+#    output = srea(stn, invCDF_map)
+#
+#    if output != None:
+#        alpha, stn = output
+#        # print getRobustness(stn)
+#        stn.minimize()
+#        for (i, j), edge in list(stn.contingent_edges.items()):
+#            edge_i = stn.getEdge(0, i)
+#            edge_j = stn.getEdge(0, j)
+#            edge.Cij = edge_j.getWeightMax()-edge_i.getWeightMax()
+#            edge.Cji = - (edge_j.getWeightMin()-edge_i.getWeightMin())
+#            # this loop ensures that the output STN with integer edge weights is still
+#            # strongly controllable
+#            for connected_edge in stn.getOutgoing(j):
+#                edge.Cji = -max(-edge.Cji, edge.Cij -
+#                                connected_edge.Cji-connected_edge.Cij)
+#        return stn
+#
+#    print("srea did not result in a feasible LP, please try again with a different STN")
+#    return None
 
 
 # \fn main

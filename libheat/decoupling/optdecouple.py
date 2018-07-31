@@ -1,8 +1,8 @@
 import pulp
 
 
-from .stntools import STN, Edge
-from .stntools.distempirical import invcdf_norm
+from ..stntools import STN, Edge
+from ..stntools.distempirical import invcdf_norm
 
 
 def decouple_agents(stn: STN, fidelity=0.001):

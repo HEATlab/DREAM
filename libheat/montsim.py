@@ -106,11 +106,9 @@ class Simulator(object):
             options["guide_min"] = -guide_stn.get_edge_weight(next_vert_id, 0)
 
             # Propagate constraints (minimise) and check consistency.
-            pr.verbose("Prior to placement STN:\n{}".format(self.stn))
-            pr.verbose("guide STN:\n{}".format(guide_stn))
-            self.assign_timepoint(guide_stn, next_vert_id, next_time)
-            self.assign_timepoint(self.stn, next_vert_id, next_time)
-            self.assign_timepoint(self.assignment_stn, next_vert_id, next_time)
+            self._assign_timepoint(guide_stn, next_vert_id, next_time)
+            self._assign_timepoint(self.stn, next_vert_id, next_time)
+            self._assign_timepoint(self.assignment_stn, next_vert_id, next_time)
             functiontimer.start("propagation & check")
             stn_copy = self.stn.copy()
             consistent = self.propagate_constraints(stn_copy)
@@ -204,7 +202,7 @@ class Simulator(object):
         return (earliest_so_far, earliest_so_far_time,
                 has_incoming_contingent)
 
-    def assign_timepoint(self, stn, vert_id, time):
+    def _assign_timepoint(self, stn, vert_id, time):
         """Assigns a timepoint to specified time
 
         Args:
@@ -238,6 +236,7 @@ class Simulator(object):
 
     def all_assigned(self) -> bool:
         """ Check if all vertices of the STN have been executed.
+
         Returns:
             Boolean indicated whether all vertices in the assignment STN have
             been executed.
