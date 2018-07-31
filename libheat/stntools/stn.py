@@ -591,22 +591,28 @@ class STN(object):
     def edge_exists(self, i, j):
         return ((i, j) in self.edges) or ((j, i) in self.edges)
 
-    ##
-    # \fn update_edge
-    # \brief Updates the edge with Node objects i & j.
-    #
-    # \details if the new weight is less than the original weight. Otherwise, do
-    #    nothing. Return whether the updates.
-    #
-    # @param i The starting Node of the edge.
-    # @param j The ending Node of the edge.
-    # @param w The new weight to try to update with.
-    # @param equality If set to true, we'll "update" the edge even if the
-    #    original weight is the same as w (the new weight). Nothing will
-    #    actually change, but the function will return True.
-    # @return Returns boolean whether or not the update actually occured.
-
     def update_edge(self, i, j, w, equality=False, force=False, create=False):
+        """Updates the edge with node ids i & j.
+
+        If the new weight is less than the original weight. Otherwise, do
+            nothing. Return whether the updates were successful.
+
+        Args:
+            i (int): The starting Node of the edge.
+            j (int): The ending Node of the edge.
+            w (float): The new weight to try to update with.
+            equality (bool, optional): If set to true, we'll "update" the edge
+                even if the original weight is the same as w (the new weight).
+                Nothing will actually change, but this function will return
+                True. Default is false.
+            force (bool, optional): If set to true, will ignore previous
+                constraints and overwrite them.
+            create (bool, optional): If set to true, will create an edge if
+                none existed previously.
+
+        Returns:
+            Returns boolean whether or not the update actually occured.
+        """
         e = self.get_edge(i, j)
         if e == None:
             if not create:
