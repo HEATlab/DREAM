@@ -13,18 +13,17 @@ Z_NODE_ID = 0
 
 class DecoupledSimulator(Simulator):
 
-    def simulate(self, starting_stn, sim_options={}):
-        ''' Run one simulation.
+    def simulate(self, starting_stn, sim_options={}) -> bool:
+        """Run one simulation.
 
         Args:
-            starting_stn: The STN used to run in the simulation.
-
-        Keyword Args:
-            sim_options: A dictionary of possible options to pass into the
+            starting_stn (:obj:`STN`): The STN used to run in the simulation.
+            sim_options (:obj:`dict`, optional): A dictionary of possible
+                options to pass into the
 
         Returns:
             Boolean indicating whether the simulation was successful or not.
-        '''
+        """
         # Initial setup
         self._current_time = 0.0
         self.stn = starting_stn.copy()
@@ -196,7 +195,8 @@ class DecoupledSimulator(Simulator):
 
     def get_guide(self, stn, previous_alpha,
                   previous_guide, options={}) -> tuple:
-        """ Retrieve a guide STN (dispatch) based on the execution strategy
+        """Retrieve a guide STN (dispatch) based on the execution strategy
+
         Args:
             execution_strat: String representing the execution strategy.
             previous_: The previously used guide STN's alpha.
@@ -206,8 +206,8 @@ class DecoupledSimulator(Simulator):
 
         Returns:
             Returns a tuple with format:
-            [0]: Alpha of the guide.
-            [1]: dispatch (type STN) which the simulator should follow,
+            | [0]: Alpha of the guide.
+            | [1]: dispatch (type STN) which the simulator should follow,
         """
         return self._drea_algorithm(stn,
                                     previous_alpha,

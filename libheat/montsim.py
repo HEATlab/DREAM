@@ -134,6 +134,7 @@ class Simulator(object):
 
     def select_next_timepoint(self, dispatch, current_time):
         """Retrieves the earliest possible vert.
+
         Ties are broken arbitrarily.
 
         Args:
@@ -277,6 +278,7 @@ class Simulator(object):
     def get_guide(self, execution_strat, previous_alpha,
                   previous_guide, options={}) -> tuple:
         """ Retrieve a guide STN (dispatch) based on the execution strategy
+
         Args:
             execution_strat (str): String representing the execution strategy.
             previous_alpha (float): The previously used guide STN's alpha.
