@@ -13,6 +13,8 @@ To generate Sphinx autodoc documentation:
 3. Open the index now generated at `docs/build/html/index.html` using your
    favourite web browser.
 
+Also check out the [IDEAS.md](IDEAS.md) file to see what we have tried.
+
 ## Unit Tests
 This project supports the unit test module. To run the tests in this project,
 use the following shell command.
