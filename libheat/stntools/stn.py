@@ -588,7 +588,7 @@ class STN(object):
     # @param j The second Node of the edge.
     # @return Returns a boolean on whether or not an edge exists between the
     #   inputted nodes. Direction is not accounted for.
-    def edgeExists(self, i, j):
+    def edge_exists(self, i, j):
         return ((i, j) in self.edges) or ((j, i) in self.edges)
 
     ##
