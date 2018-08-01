@@ -13,7 +13,12 @@ To generate Sphinx autodoc documentation:
 3. Open the index now generated at `docs/build/html/index.html` using your
    favourite web browser.
 
-Also check out the [IDEAS.md](IDEAS.md) file to see what we have tried.
+Docstrings follow *Google Docstring Style*, and we use the Sphinx Napolean add-on
+to convert between Google style to RST for Sphinx.
+
+
+## Project Notes
+Check out the [IDEAS.md](IDEAS.md) file to see what we have tried.
 
 ## Unit Tests
 This project supports the unit test module. To run the tests in this project,
