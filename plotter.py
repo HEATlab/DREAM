@@ -15,7 +15,7 @@ from libheat.plotting.plot_utils import framefilters
 from libheat.plotting.plot_arsc import plot_arsc_cross
 from libheat.plotting.plot_ara import plot_ara
 from libheat.plotting.plot_syncvrobust import plot_syncvrobust
-from libheat.plotting.dream_details import dream_table
+import libheat.plotting.dream_details as dream_details
 
 
 CM2INCH = 0.393701
@@ -56,8 +56,21 @@ def main():
         ax.set_title("DREA-AR Alternate")
         plot_ara(full_df, ax=ax, plot_srea=True)
     elif args.table:
-        dream_table(full_df)
+        dream_details.dream_table(full_df)
         return
+    elif args.gain_table:
+        dream_details.dream_gain_table(full_df)
+        return
+    elif args.gain_table_q2:
+        dream_details.dream_gain_table_q2(full_df)
+        return
+    elif args.best_ar:
+        dream_details.dream_best_ar(full_df)
+        return
+    elif args.best_sc:
+        dream_details.dream_best_sc(full_df)
+        return
+
     if args.output is None:
         plt.show()
     else:
@@ -378,6 +391,10 @@ def parse_args():
     parser.add_argument("--arsi-threshold", action="store_true")
     parser.add_argument("--ara-threshold", action="store_true")
     parser.add_argument("--table", action="store_true")
+    parser.add_argument("--gain-table", action="store_true")
+    parser.add_argument("--gain-table-q2", action="store_true")
+    parser.add_argument("--best-ar", action="store_true")
+    parser.add_argument("--best-sc", action="store_true")
     parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output file name")
     return parser.parse_args()

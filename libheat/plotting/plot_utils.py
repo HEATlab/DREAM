@@ -57,7 +57,8 @@ def clearzero(df):
     return df
 
 
-def threshold_means(df, thresh_name, thresholds, comp_df, error_fac=1.0):
+def threshold_means(df, thresh_name, thresholds, comp_df=None, error_fac=1.0,
+                    use_percents=True):
     """Computes the means (and standard deviations) along a set of threshold
         values. This is handy for doing the Threshold v.s. Robustness plots
         when in comparison to DREA.
@@ -66,10 +67,11 @@ def threshold_means(df, thresh_name, thresholds, comp_df, error_fac=1.0):
         df (DataFrame): DataFrame of the data we want to plot. Often, this
             needs to be filtered to be only one algorithm.
         thresh_name (str): String representing the column name for thresholds
-        comp_df (DataFrame): Data frame to compare to, percent wise.
+        comp_df (DataFrame, optional): Data frame to compare to, percent wise.
         error_fac (float, optional): Multiply error sizes by this number.
             Particularly useful if we want to use confidence intervals. Default
             is 1.0.
+        use_percents (float, optional): Return results in percents.
 
     Returns:
         Returns an object with properties:
@@ -81,10 +83,16 @@ def threshold_means(df, thresh_name, thresholds, comp_df, error_fac=1.0):
             res_err -> returns a list of reschedule frequencies errors
             runtimes -> returns a list of runtimes.
     """
-    comp_rob = comp_df["robustness"].mean()
-    comp_res = comp_df["reschedule_freq"].mean()
-    comp_run = comp_df["runtime"].mean()
-    comp_send = comp_df["send_freq"].mean()
+    if comp_df is not None:
+        comp_rob = comp_df["robustness"].mean()
+        comp_res = comp_df["reschedule_freq"].mean()
+        comp_run = comp_df["runtime"].mean()
+        comp_send = comp_df["send_freq"].mean()
+    else:
+        comp_rob = 1.0
+        comp_res = 1.0
+        comp_run = 1.0
+        comp_send = 1.0
 
     rob_means = []
     stderrs = []
@@ -93,23 +101,31 @@ def threshold_means(df, thresh_name, thresholds, comp_df, error_fac=1.0):
     reschedules = []
     reschedules_err = []
     runtimes = []
+    runtimes_err = []
+
+    if use_percents:
+        p = 100
+    else:
+        p = 1
 
     for t in thresholds:
         point = df.loc[df[thresh_name] == t]
-        mean = point["robustness"].mean()/comp_rob.mean() * 100
+        mean = point["robustness"].mean()/comp_rob * p
         rob_means.append(mean)
-        se = point["robustness"].sem() * 100
+        se = point["robustness"].sem() * p
         stderrs.append(se*error_fac)
-        send_dat = point["send_freq"].mean()/comp_send * 100
+        send_dat = point["send_freq"].mean()/comp_send * p
         sends.append(send_dat)
-        send_err = point["send_freq"].sem() * 100
+        send_err = point["send_freq"].sem() * p
         sends_err.append(send_err*error_fac)
-        res = point["reschedule_freq"].mean()/comp_res * 100
+        res = point["reschedule_freq"].mean()/comp_res * p
         reschedules.append(res)
-        res_err = point["reschedule_freq"].sem() * 100
+        res_err = point["reschedule_freq"].sem() * p
         reschedules_err.append(res_err*error_fac)
-        runtime = point["runtime"].mean()/comp_run * 100
+        runtime = point["runtime"].mean()/comp_run * p
         runtimes.append(runtime)
+        runtime_err = point["runtime"].sem() * p
+        runtimes_err.append(runtime_err*error_fac)
 
     class ThreshResponse(object):
         def __init__(self, robs, robs_err, sends, sends_err, res, res_err,
@@ -121,6 +137,21 @@ def threshold_means(df, thresh_name, thresholds, comp_df, error_fac=1.0):
             self.res = res
             self.res_err = res_err
             self.runtimes = runtimes
+            self.runtimes_err = runtimes_err
 
     return ThreshResponse(rob_means, stderrs, sends, sends_err, reschedules,
                           reschedules_err, runtimes)
+
+def find_thresholds(df: pd.DataFrame, threshold_name: str):
+    """Finds the set values of thresholds in the DataFrame
+
+    Args:
+        df: Frame to read.
+        threshold_name: Name of the threshold to get the values of.
+
+    Returns:
+        An numpy array of threshold values of that threshold_name.
+    """
+    thresh_series = df[threshold_name]
+    return thresh_series.unique()
+
