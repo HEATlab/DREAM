@@ -1,6 +1,6 @@
-# libheat
+# DREAM
 
-New version of the robotbrunch codebase.
+Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
@@ -18,7 +18,7 @@ to convert between Google style to RST for Sphinx.
 
 
 ## Project Notes
-Check out the [IDEAS.md](IDEAS.md) file to see what we have tried.
+Check out the [IDEAS.md](IDEAS.md) file to see what we (as a lab) have tried.
 
 ## Unit Tests
 This project supports the unit test module. To run the tests in this project,
