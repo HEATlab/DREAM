@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# This script runs the simulator, and is the primary interface between DREAM,
+# SREA, DREA, DDREA, DREA-AR, DREA-SI/SC, and DREA-ARA
+#
+# Alternatively, you can run "run_simulator.py" directly.
+#
+# Remember, there's always `--help`!
+#
+# Author: Jordan R Abrahams
+# Contact: jabrahams@hmc.edu
+# Date: 2018-08-02
+
+# To new lab members:
+# When working with UNIX-based systems (e.g. Debian, Ubuntu, MacOS), you should
+# have a passing familiarity with BASH.
+
+BASEDIR=$(dirname "$0")
+pushd $BASEDIR > /dev/null
+python3 run_simulator.py $@
+popd > /dev/null
