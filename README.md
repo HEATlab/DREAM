@@ -5,6 +5,25 @@ Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
 
+## Running Simulator
+
+Usage
+
+```bash
+$ usage: run_simulator.py [-h] [-v] [-t THREADS] [-s SAMPLES] [-e EXECUTION]
+                        [-o OUTPUT] [--ar-threshold AR_THRESHOLD]
+                        [--si-threshold SI_THRESHOLD] [--seed SEED]
+                        [--no-live]
+                        stns [stns ...]
+```
+
+How to use DREAM on an PSTN:
+
+```bash
+$ python3 run_simulator.py -e arsi -s 100 test_data/two_agent_sync.json
+```
+
+The `-e` option sets the execution strategy, and the `-s` sets the number of samples to simulate.
 
 ## Documentation
 To generate Sphinx autodoc documentation:
@@ -15,7 +34,6 @@ To generate Sphinx autodoc documentation:
 
 Docstrings follow *Google Docstring Style*, and we use the Sphinx Napolean add-on
 to convert between Google style to RST for Sphinx.
-
 
 ## Project Notes
 Check out the [IDEAS.md](IDEAS.md) file to see what we (as a lab) have tried.
