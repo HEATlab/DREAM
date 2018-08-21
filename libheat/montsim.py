@@ -4,6 +4,7 @@ from . import srea
 from . import functiontimer
 from . import printers as pr
 
+
 Z_NODE_ID = 0
 
 
@@ -20,8 +21,8 @@ class Simulator(object):
         self.num_reschedules = 0
         self.num_sent_schedules = 0
 
-    def simulate(self, starting_stn, execution_strat, sim_options={}):
-        '''Run one simulation.
+    def simulate(self, starting_stn, execution_strat, sim_options=None):
+        """Run one simulation.
 
         Args:
             starting_stn (STN): The STN used to run in the simulation.
@@ -37,7 +38,7 @@ class Simulator(object):
 
         Returns:
             Boolean indicating whether the simulation was successful or not.
-        '''
+        """
         # Initial setup
         self._current_time = 0.0
         self.stn = starting_stn.copy()
@@ -58,12 +59,14 @@ class Simulator(object):
                    "executed_time": 0.0,
                    "guide_min": 0.0,
                    "guide_max": 0.0}
-        if "si_threshold" in sim_options:
-            options["si_threshold"] = sim_options["si_threshold"]
-        if "ar_threshold" in sim_options:
-            options["ar_threshold"] = sim_options["ar_threshold"]
-        if "alp_threshold" in sim_options:
-            options["alp_threshold"] = sim_options["alp_threshold"]
+
+        if sim_options is not None:
+            if "si_threshold" in sim_options:
+                options["si_threshold"] = sim_options["si_threshold"]
+            if "ar_threshold" in sim_options:
+                options["ar_threshold"] = sim_options["ar_threshold"]
+            if "alp_threshold" in sim_options:
+                options["alp_threshold"] = sim_options["alp_threshold"]
 
         # Setup default guide settings
         guide_stn = self.stn
@@ -506,7 +509,7 @@ class Simulator(object):
             else:
                 return previous_alpha, previous_guide, contingent_event_counter
         # We should only run this algorithm *if* we recently executed
-        # a receieved/contingent timepoint.
+        # a received/contingent timepoint.
         if not executed_contingent:
             return previous_alpha, previous_guide, contingent_event_counter
 
@@ -587,7 +590,7 @@ class Simulator(object):
                 return new_alpha, new_guide, contingent_event_counter
             return previous_alpha, previous_guide, contingent_event_counter
         # We should only run this algorithm *if* we recently executed
-        # a receieved/contingent timepoint.
+        # a received/contingent timepoint.
         if not executed_contingent:
             return previous_alpha, previous_guide, contingent_event_counter
         # AR SECTION ----------------------------------------------------------
@@ -621,7 +624,6 @@ class Simulator(object):
                        +"new_alpha={}")
                        .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide, contingent_event_counter
-        return previous_alpha, previous_guide, contingent_event_counter
 
     def remaining_contingent_count(self, stn):
         """Returns the number of remaining (unexecuted) contingent events"""
