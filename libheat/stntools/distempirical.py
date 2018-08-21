@@ -12,12 +12,14 @@ _invcdfs = {}
 
 MAX_RESAMPLE = 10
 
+
 def collect_data(rundir):
+    """Unimplemented function intended for empirical data collection"""
     pass
 
 
 def empirical_sample(distribution_name: str, state=None) -> float:
-    """ Gets a sample from a specified distribution.
+    """Gets a sample from a specified distribution.
 
     Return:
         Returns a float from the distribution.
@@ -30,7 +32,7 @@ def empirical_sample(distribution_name: str, state=None) -> float:
 
 def norm_sample(mu: float, sigma: float, state=None, res=1000,
                   neg=False) -> float:
-    """ Retrieve a sample from a normal distribution
+    """Retrieve a sample from a normal distribution
 
     Args:
         mu: mean of the normal distribution
@@ -157,6 +159,52 @@ def invcdf_norm(val: float, mu: float, sigma: float, res=1000, neg=False):
     ans = curve[1][binary_search_lookup(val, curve[0])]
     functiontimer.stop("invcdf_norm")
     return ans
+
+
+def uniform_sample(lb: float, ub: float, random_state=None) -> float:
+    """Returns a randomly selected uniform sample
+
+    Args:
+        lb: Lower bound of the uniform sample
+        ub: Upper bound of the uniform sample
+        random_state (optional): Numpy random state to use (default None)
+
+    Return:
+        A new sample drawn from the uniform distribution
+    """
+    if random_state is None:
+        return np.random.uniform(lb, ub)
+    else:
+        return random_state.uniform(lb, ub)
+
+
+def invcdf_uniform(val: float, lb: float, ub: float) -> float:
+    """Returns the inverse CDF lookup of a uniform distribution. Is constant
+        time to call.
+
+    Args:
+        val: Value between 0 and 1 to calculate the inverse cdf of.
+        lb: lower bound of the uniform distribution
+        ub: upper bound of the uniform distribution
+
+    Returns:
+        Inverse CDF of a uniform distribution for the provided value.
+
+    Examples:
+        >>> invcdf_uniform(1, 5, 10)
+        10
+        >>> invcdf_uniform(0, 5, 10)
+        5
+        >>> invcdf_uniform(0.5, 5, 10)
+        7.5
+    """
+    if val < 0:
+        return -float("inf")
+    elif val > 1:
+        return float("inf")
+    else:
+        return val * (ub - lb) + lb
+
 
 if __name__ == "__main__":
     import doctest

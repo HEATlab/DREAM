@@ -1,0 +1,45 @@
+{
+ "instances": [
+  {
+   "STP Picard": [
+    {
+     "end_event_name": "arr",
+     "type": "uncontrollable_probabilistic",
+     "name": "traversal",
+     "properties": {
+      "distribution": {
+       "variance": 4.0,
+       "type": "gaussian",
+       "mean": 20.0
+      }
+     },
+     "start_event_name": "dep"
+    },
+    {
+     "end_event_name": "erupt",
+     "type": "uncontrollable_probabilistic",
+     "name": "eruption",
+     "properties": {
+      "distribution": {
+       "variance": 25.0,
+       "type": "gaussian",
+       "mean": 60.0
+      }
+     },
+     "start_event_name": "SoD"
+    },
+    {
+     "end_event_name": "arr",
+     "type": "controllable",
+     "name": "arrival",
+     "properties": {
+      "lb": 0.0,
+      "ub": 120.0
+     },
+     "start_event_name": "erupt"
+    }
+   ]
+  }
+ ],
+ "name": "STP Picard"
+}

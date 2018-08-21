@@ -1,16 +1,14 @@
+"""
+File:
+    This file holds the core classes needed to construct STNs and PSTNs.
+"""
+
 import math
 
-from .distempirical import norm_sample
-
-# \file stntools.py
-#  \brief tools for working with STNs
-
-# \class Vertex
-#  \brief Represents an STN timepoint
-
+from .distempirical import norm_sample, uniform_sample
 
 class Vertex(object):
-
+    """Represents a timepoint in an STN"""
     # \brief Vertex Constructor
     #  \param nodeID The unique ID number of the vertex in the STN.
     #  \param localID The ID number of the vertex for only the agent
@@ -28,13 +26,13 @@ class Vertex(object):
         self.ownerID = ownerID
         # The grid point number indicating the physical location of the node.
         self.location = location
-        # Flag for the simulator that indicates if the vertex has been executed.
+        # Flag for the simulator that indicates if the vertex has been
+        # executed.
         self.executed = False
 
     # \brief Vertex String Representation
     def __repr__(self):
         return "Vertex {} owned by agent {}".format(self.nodeID, self.ownerID)
-
 
     def __eq__(self, other):
         if other is None:
@@ -82,21 +80,18 @@ class Edge(object):
     #  \param distribution The name of the distriution used in the edge.
     #  \param fake         Flag indicating if the edge is fake
     def __init__(self, i, j, Tmin, Tmax, distribution=None, fake=False):
-        # The starting node of the edge.
         self.i = i
-
-        # The ending node of the edge.
+        """The starting node id for the edge."""
         self.j = j
-
-        # The maximum amount of time allotted.
+        """The ending node id for the edge."""
         self.Cij = Tmax
-
-        # The negated minimum amount of time allotted. (In this form for notation)
+        """The maximum amount of time alloted."""
         self.Cji = -Tmin
-
-        # The string representation of the distribution
+        """The negated minimum amount of time allotted."""
         self.distribution = distribution
-
+        """The string representation for this edge's probability 
+            distribution
+        """
         self._sampled_time = 0
 
     def __eq__(self, other):
@@ -147,7 +142,7 @@ class Edge(object):
 
     # \brief Checks if edge has a probability distribution
     def is_contingent(self):
-        return self.distribution != None
+        return self.distribution is not None
 
     # \brief The string representation of the edge
     def __repr__(self):
@@ -161,9 +156,13 @@ class Edge(object):
         Returns:
             A float selected from this edge's contingent distribution.
         """
+        sample = None
         if not self.is_contingent():
             raise TypeError("Cannot sample requirement edge")
-        sample = norm_sample(self.mu, self.sigma, random_state)
+        if self.distribution[0] == "N":
+            sample = norm_sample(self.mu, self.sigma, random_state)
+        elif self.distribution[0] == "U":
+            sample = uniform_sample(self.dist_lb, self.dist_ub, random_state)
         # We have to use integers because of rounding errors.
         self._sampled_time = round(sample)
         return self._sampled_time
@@ -183,18 +182,31 @@ class Edge(object):
     @property
     def mu(self):
         name_split = self.distribution.split("_")
-        if len(name_split) != 3:
-            raise ValueError("Distribution was not normal:"
-                             "{}".format(self.distribution))
+        if len(name_split) != 3 or name_split[0] != "N":
+            raise ValueError("No mu for non-normal dist")
         return float(name_split[1])*1000
 
     @property
     def sigma(self):
         name_split = self.distribution.split("_")
-        if len(name_split) != 3:
-            raise ValueError("Distribution was not normal:"
-                             "{}".format(self.distribution))
+        if len(name_split) != 3 or name_split[0] != "N":
+            raise ValueError("No sigma for non-normal dist")
         return float(name_split[2])*1000
+
+    @property
+    def dist_ub(self):
+        name_split = self.distribution.split("_")
+        if len(name_split) != 3 or name_split[0] != "U":
+            raise ValueError("No upper bound for non-uniform dist")
+        return float(name_split[2])*1000
+
+    @property
+    def dist_lb(self):
+        name_split = self.distribution.split("_")
+        if len(name_split) != 3 or name_split[0] != "U":
+            raise ValueError("No lower bound for non-uniform dist")
+        return float(name_split[1])*1000
+
 ##
 # \class STN
 # \brief A representation of an entire STN.
@@ -250,6 +262,8 @@ class STN(object):
             if edge.i == 0:
                 toPrint += "Vertex {}: [{}, {}]".format(edge.j,
                                                         -edge.Cji, edge.Cij)
+                if edge.distribution is not None:
+                    toPrint += " ({})".format(edge.distribution)
                 if self.get_vertex(j).is_executed():
                     toPrint += " Ex"
             else:
@@ -359,49 +373,48 @@ class STN(object):
         nodeID = vertex.nodeID
         self.verts[nodeID] = vertex
 
-    ##
-    # \fn add_edge
-    # \brief Takes in the parameters of an edge and adds the edge to the STN
-    #
-    # @param i            The starting node of the edge.
-    # @param j            The ending node of the edge.
-    # @param Tmin         The min time needed to go from node i to node j.
-    # @param Tmax         The max time allowed to go from node i to node j.
-    # @param distribution The name of the distribution used in the edge.
-    # @param fake         Flag for if the edge is fake
-    # @post               A new edge, generated from the arguments is added to
-    #                     the STN.
     def add_edge(self, i, j, Tmin, Tmax, distribution=None):
+        """Takes in the parameters of an edge and adds the edge to the STN
+
+        Args:
+            i: The starting node of the edge.
+            j: The ending node of the edge.
+            Tmin: The min time needed to go from node i to node j.
+            Tmax: The max time allowed to go from node i to node j.
+            distribution: The name of the distribution used in the edge.
+
+        Post:
+            A new edge, generated from the arguments is added to the STN.
+        """
         if i not in self.verts or j not in self.verts:
             raise ValueError("Vertex pair does not exist")
-        newEdge = Edge(i, j, Tmin, Tmax, distribution)
-        self.edges[(i, j)] = newEdge
+        new_edge = Edge(i, j, Tmin, Tmax, distribution)
+        self.edges[(i, j)] = new_edge
         if distribution is not None:
-            self.contingent_edges[(i, j)] = newEdge
+            self.contingent_edges[(i, j)] = new_edge
             self.received_timepoints += [j]
             self.parent[j] = i
         elif self.get_vertex(i).ownerID != self.get_vertex(j).ownerID \
                 and self.get_vertex(i).ownerID is not None \
                 and self.get_vertex(j).ownerID is not None:
-            self.interagent_edges[(i, j)] = newEdge
+            self.interagent_edges[(i, j)] = new_edge
         else:
-            self.requirement_edges[(i, j)] = newEdge
+            self.requirement_edges[(i, j)] = new_edge
 
-    ##
-    # \fn add_created_edge
-    # \brief Takes in a Edge object and adds it to the STN.
-    #
-    # \details Direction matters. If the Edge is fake, an Edge is recorded in the
-    #   internal dictionary, but it's not labelled as a contingent, interagent,
-    #   or requirement edge.
-    #
-    # @param edge    A new Edge object to be added to the STN.
     def add_created_edge(self, edge):
+        """Takes an existing Edge object and adds it to the STN.
+
+        Direction matters. Will add to the needed contingent, interagent,
+        or requirement dicts.
+
+        Args:
+            edge (Edge): Edge to add.
+        """
         i = edge.i
         j = edge.j
 
         self.edges[(i, j)] = edge
-        if edge.distribution != None:
+        if edge.distribution is not None:
             self.contingent_edges[(i, j)] = edge
             self.received_timepoints.append(j)
             self.parent[j] = i
@@ -430,23 +443,11 @@ class STN(object):
     # \brief Gets all the Nodes in the STN
     #
     # @return Returns an unordered List of all Node objects in the STN.
-
     def get_all_verts(self):
         return list(self.verts.values())
 
-    # \brief Get a vertex by agent ID and local ID
-    #  \param agentID The agent ID number of the owner of the vertex
-    #  \param localID The local ID number of the vertex
-
-    def getAgentVertexID(self, agentID, localID):
-        for v in self.get_all_verts():
-            if v.ownerID == agentID and v.localID == localID:
-                return v
-        return None
-
     # \brief Return a list of edges incident to this node
     #  \param nodeID The ID of the vertex
-
     def get_edges_incident(self, nodeID):
         return [e for e in self.get_all_edges() if e.i == nodeID
                 or e.j == nodeID]
@@ -454,8 +455,8 @@ class STN(object):
     # \brief Returns the degree (number of edges) of a vertex
     #  \param nodeID The ID of the vertex.
 
-    def getDegree(self, nodeID):
-        return len(self.get_edges_incident(nodeID))
+    def get_degree(self, node_id):
+        return len(self.get_edges_incident(node_id))
 
     # \brief Returns a list of nodes adjacent to a given node
     #  \param nodeID The ID of the node
@@ -558,17 +559,19 @@ class STN(object):
     def get_all_edges(self):
         return list(self.edges.values())
 
-    ##
-    # \fn get_edgeWeight
-    # \brief Gets a directed edge weight of an edge from the STP
-    #
-    # \details Direction does matter. If no edge exists between i & j, return
-    #   'inf' If i = j, this function returns 0.
-    #
-    # @param i The starting Node of the edge.
-    # @param j The ending Node of the edge.
-    # @return Returns a float representing the weight from Node i to Node j.
     def get_edge_weight(self, i, j):
+        """Gets the directed edge weight of an edge from the STN
+        
+        Direction does matter. If no edge exists between i & j, returns infinity.
+        If i = j, this function returns 0.
+
+        Args:
+            i (int): From node Id
+            j (int): To node Id
+
+        Return:
+            Returns distance graph weight from i to j as float.
+        """
         e = self.get_edge(i, j)
         if e is None:
             if i == j and i in self.verts:
@@ -614,7 +617,7 @@ class STN(object):
             Returns boolean whether or not the update actually occured.
         """
         e = self.get_edge(i, j)
-        if e == None:
+        if e is None:
             if not create:
                 return False
             self.add_edge(i, j, -float("inf"), w)
@@ -641,6 +644,7 @@ class STN(object):
 
         Args:
             node_id (int): Node id to check.
+
         Returns:
             If the node is assigned (has an exact, specific time), return that
                 time. Otherwise, return None.
@@ -656,13 +660,13 @@ class STN(object):
     # returns True if the time point has been executed or if the previous
     # time point has been executed, meaning that if there is an edge leading
     # to nodeID then the first timepoint of that edge has been executed
-    def incomingExecuted(self, node_id):
-        if self.verts[nodeID].is_executed():
+    def incoming_executed(self, node_id):
+        if self.verts[node_id].is_executed():
             return True
 
-        if nodeID in self.received_timepoints:
-            ctgE = self.get_incoming_contingent(nodeID)
-            return self.verts[ctgE.i].executed
+        if node_id in self.received_timepoints:
+            ctg_e = self.get_incoming_contingent(node_id)
+            return self.verts[ctg_e.i].executed
 
         ex = [self.verts[e.i].is_executed() for e in self.get_all_edges()
               if e.j == node_id]
