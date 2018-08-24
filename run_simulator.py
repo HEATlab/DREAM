@@ -10,13 +10,12 @@ strategy.
 import sys
 
 try:
-    assert(sys.version_info >= (3,0))
+    assert (sys.version_info >= (3, 0))
 except AssertionError:
     print("Simulations must be run with Python3 or greater")
 
 import os
 import os.path
-import sys
 import time
 import multiprocessing
 import argparse
@@ -24,17 +23,17 @@ import numpy as np
 
 
 from libheat import functiontimer
-from libheat.stntools import STN, load_stn_from_json_file
+from libheat.stntools import STN, load_stn_from_json_file, mitparser
 from libheat.montsim import Simulator
 from libheat.dmontsim import DecoupledSimulator
 import libheat.printers as pr
 from libheat import sim2csv
 
-
-MAX_SEED = 2**32
+MAX_SEED = 2 ** 31 - 1
 """The maximum number a random seed can be."""
 DEFAULT_DECOUPLE = "srea"
 """The default decoupling type for DecoupledSimulator"""
+
 
 def main():
     args = parse_args()
@@ -51,10 +50,9 @@ def main():
 
     sim_count = args.samples
 
-    sim_options = {}
-    sim_options["ar_threshold"] = args.ar_threshold
-    sim_options["alp_threshold"] = args.si_threshold
-    sim_options["si_threshold"] = args.si_threshold
+    sim_options = {"ar_threshold": args.ar_threshold,
+                   "alp_threshold": args.si_threshold,
+                   "si_threshold": args.si_threshold}
 
     # simulate across multiple paths.
     stn_paths = folder_harvest(args.stns, recurse=True, only_json=True)
@@ -62,11 +60,13 @@ def main():
                  sim_options,
                  output=args.output,
                  live_updates=(not args.no_live),
-                 random_seed=random_seed)
+                 random_seed=random_seed,
+                 mitparse=args.mit_parse)
 
 
 def across_paths(stn_paths, execution, threads, sim_count, sim_options,
-                 output=None, live_updates=True, random_seed=None):
+                 output=None, live_updates=True, random_seed=None,
+                 mitparse=False):
     """Runs multiple simulations for each STN in the provided iterable.
 
     Args:
@@ -79,11 +79,22 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         live_updates (boolean, optional): Whether to provide live updates.
         random_seed (int, optional): The random seed to start out with,
             defaults to a random... random seed.
+        mitparse (boolean, optional): Parse STN JSON files as MIT format.
     """
     num_paths = len(stn_paths)
+    stn_pairs = []
     for i, path in enumerate(stn_paths):
-        stn = load_stn_from_json_file(path)["stn"]
+        if mitparse:
+            mitstns = mitparser.mit2stn(path, add_z=True, connect_origin=True)
+            stn_pairs += [(path, k) for k in mitstns]
+        else:
+            stn = load_stn_from_json_file(path)["stn"]
+            stn_pairs.append((path, stn))
 
+    # We must separate these for loops because MIT stns can hold several
+    # instances in a single file.
+    for i, pair in enumerate(stn_pairs):
+        path, stn = pair
         start_time = time.time()
         response_dict = multiple_simulations(stn, execution, sim_count,
                                              threads=threads,
@@ -104,7 +115,10 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
 
         total_sd = 0
         for e in stn.contingent_edges.values():
-            total_sd += e.sigma
+            try:
+                total_sd += e.sigma
+            except ValueError:
+                continue
         sd_avg = total_sd / len(stn.contingent_edges)
 
         results_dict = {}
@@ -116,6 +130,7 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         results_dict["samples"] = sim_count
         results_dict["timestamp"] = time.time()
         results_dict["stn_path"] = path
+        results_dict["stn_name"] = stn.name
         results_dict["ar_threshold"] = sim_options["ar_threshold"]
         results_dict["si_threshold"] = sim_options["si_threshold"]
         results_dict["synchronous_density"] = synchrony
@@ -132,13 +147,14 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
             sim2csv.save_csv_row(results_dict, output)
 
         if live_updates:
-            _print_results(results_dict, i + 1, num_paths)
+            _print_results(results_dict, i + 1, len(stn_pairs))
 
 
-def _print_results(results_dict, i, num_paths):
+def _print_results(results_dict, i, stn_count):
     """Pretty print the results of N samples of simulation"""
     print("-"*79)
     print("    Ran on: {}".format(results_dict["stn_path"]))
+    print("    Name: {}".format(results_dict["stn_name"]))
     print("    Timestamp: {}".format(results_dict["timestamp"]))
     print("    Samples: {}".format(results_dict["samples"]))
     print("    Threads: {}".format(results_dict["threads"]))
@@ -158,7 +174,7 @@ def _print_results(results_dict, i, num_paths):
     print("    Sync Density: {}".format(results_dict["synchronous_density"]))
     print("    Resc Freq: {}".format(results_dict["reschedule_freq"]))
     print("    Send Freq: {}".format(results_dict["send_freq"]))
-    print("    Total Progress: {}/{}".format(i, num_paths))
+    print("    Total Progress: {}/{}".format(i, stn_count))
     print("-"*79)
 
 
@@ -347,15 +363,17 @@ def parse_args():
                         help="Set the execution strategy to use. Default is"
                         " 'early'")
     parser.add_argument("-o", "--output", type=str,
-                        help="Write the simulation results to a CSV.")
+                        help="Write the simulation results to a CSV")
     parser.add_argument("--ar-threshold", type=float, default=0.0,
                         help="AR Threshold to use for AR and ARSI")
     parser.add_argument("--si-threshold", type=float, default=0.0,
                         help="SI Threshold to use for SI, ALP and ARSI")
+    parser.add_argument("--mit-parse", action="store_true",
+                        help="Use MIT parsing to read in STN JSON files")
     parser.add_argument("--seed", default=None, help="Set the random seed")
     parser.add_argument("--no-live", action="store_true",
                         help="Turn off live update printing")
-    parser.add_argument("stns", help="The STN JSON files to run on.",
+    parser.add_argument("stns", help="The STN JSON files to run on",
                         nargs="+")
     return parser.parse_args()
 

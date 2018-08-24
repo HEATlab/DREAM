@@ -53,15 +53,15 @@ class TestSdecDecouple(unittest.TestCase):
             res2 = sim2.simulate(stn, "srea")
             self.assertEqual(res1, res2)
 
-    #def test_decouple_sim_2(self):
-    #    stn = stntools.load_stn_from_json_file(STN3)["stn"]
-    #    sim = DecoupledSimulator(random_seed=42)
-    #    self.assertFalse(sim.simulate(stn))
+    def test_decouple_sim_2(self):
+        stn = stntools.load_stn_from_json_file(STN3)["stn"]
+        sim = DecoupledSimulator(random_seed=42)
+        self.assertFalse(sim.simulate(stn))
 
-    #def test_decouple_sim_3(self):
-    #    stn = stntools.load_stn_from_json_file(STN3)["stn"]
-    #    sim = DecoupledSimulator(random_seed=1000)
-    #    self.assertTrue(sim.simulate(stn))
+    def test_decouple_sim_3(self):
+        stn = stntools.load_stn_from_json_file(STN3)["stn"]
+        sim = DecoupledSimulator(random_seed=1000)
+        self.assertTrue(sim.simulate(stn))
 
 
 if __name__ == "__main__":

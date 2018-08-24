@@ -7,6 +7,9 @@ import math
 
 from .distempirical import norm_sample, uniform_sample
 
+MAX_FLOAT = 1.7976931348623157e+308
+
+
 class Vertex(object):
     """Represents a timepoint in an STN"""
     # \brief Vertex Constructor
@@ -168,7 +171,7 @@ class Edge(object):
         return self._sampled_time
 
     def sampled_time(self) -> float:
-        """ Gets the sampled time for this contingent edge.
+        """Gets the sampled time for this contingent edge.
         If this edge has not been resampled, it will return 0.0 or the last
         sample collected.
         """
@@ -178,6 +181,19 @@ class Edge(object):
         new_edge = Edge(self.i, self.j, -self.Cji, self.Cij, self.distribution)
         new_edge._sampled_time = self._sampled_time
         return new_edge
+
+    def dtype(self):
+        """Returns the distribution edge type as a String. If no there is
+            distribution for this edge, return None.
+        """
+        if self.distribution is None:
+            return None
+        if self.distribution[0] == "U":
+            return "uniform"
+        elif self.distribution[0] == "N":
+            return "gaussian"
+        else:
+            return "unknown"
 
     @property
     def mu(self):
@@ -206,6 +222,13 @@ class Edge(object):
         if len(name_split) != 3 or name_split[0] != "U":
             raise ValueError("No lower bound for non-uniform dist")
         return float(name_split[1])*1000
+
+    def cap(self):
+        """Caps this edge's Cij and Cji properties to a "max" floating point
+            value.
+        """
+        self.Cij = min(MAX_FLOAT, max(-MAX_FLOAT, self.Cij))
+        self.Cji = min(MAX_FLOAT, max(-MAX_FLOAT, self.Cji))
 
 ##
 # \class STN
@@ -252,27 +275,27 @@ class STN(object):
         # List of agents involved in the STN.
         self.agents = []
 
+        self.name = "Unnamed STN"
+        """Identifying name of the STN"""
+
     # \brief String representation of the STN
     def __str__(self):
-        toPrint = ""
+        to_print = ""
         for (i, j), edge in sorted(self.edges.items()):
-            # if edge.fake:
-            #    toPrint += "("
-
             if edge.i == 0:
-                toPrint += "Vertex {}: [{}, {}]".format(edge.j,
-                                                        -edge.Cji, edge.Cij)
+                to_print += "Vertex {}: [{}, {}]".format(edge.j,
+                                                         -edge.Cji, edge.Cij)
                 if edge.distribution is not None:
-                    toPrint += " ({})".format(edge.distribution)
+                    to_print += " ({})".format(edge.distribution)
                 if self.get_vertex(j).is_executed():
-                    toPrint += " Ex"
+                    to_print += " Ex"
             else:
-                toPrint += "Edge {} => {}: [{}, {}]".format(
+                to_print += "Edge {} => {}: [{}, {}]".format(
                     edge.i, edge.j, -edge.Cji, edge.Cij)
                 if edge.distribution is not None:
-                    toPrint += " ({})".format(edge.distribution)
-            toPrint += "\n"
-        return toPrint
+                    to_print += " ({})".format(edge.distribution)
+            to_print += "\n"
+        return to_print
 
     ##
     # \fn copy
@@ -797,6 +820,14 @@ class STN(object):
             if e.get_weight_min() > e.get_weight_max():
                 return False
         return True
+
+    def cap_edges(self):
+        """Removes any excessively large edges, and replaces them with a
+            very, very large floating point number.
+            This floating point number can be found in MAX_FLOAT.
+        """
+        for k in self.edges.keys():
+            self.edges[k].cap()
 
     # \brief minimizes the stn if possible
     #  and returns true if consistent

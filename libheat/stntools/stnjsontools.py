@@ -5,6 +5,7 @@
 #
 
 import json
+import os.path
 from .stn import STN
 
 ##
@@ -38,6 +39,7 @@ def load_stn_from_json_file(filepath, using_pstn=True, from_millis=False):
     with open(filepath,'r') as f:
         output_dict = load_stn_from_json(f.read(),
                                          using_pstn=using_pstn)
+    output_dict["stn"].name = os.path.basename(filepath)
     return output_dict
 
 

@@ -17,11 +17,12 @@ class TestMitParse(unittest.TestCase):
         self.assertEqual(stn.edges[(2, 3)].distribution, "N_60.0_5.0")
 
     def test_read2(self):
-        stn = stntools.mit2stn(MIT_STN2)[0]
-        self.assertEqual(len(stn.verts.keys()), 4)
-        self.assertEqual(len(stn.edges.keys()), 3)
-        self.assertEqual(stn.edges[(0, 1)].distribution, "U_1.0_5.0")
-        self.assertEqual(stn.edges[(2, 3)].distribution, "U_6.0_12.0")
+        stn = stntools.mit2stn(MIT_STN2, add_z=True, connect_origin=True)[0]
+        self.assertEqual(len(stn.verts.keys()), 5)
+        self.assertEqual(len(stn.edges.keys()), 7)
+        self.assertEqual(stn.edges[(1, 2)].distribution, "U_1.0_5.0")
+        self.assertEqual(stn.edges[(3, 4)].distribution, "U_6.0_12.0")
+        stn.floyd_warshall()
 
     def test_sample1(self):
         state1 = np.random.RandomState(42)

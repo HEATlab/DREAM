@@ -1,4 +1,4 @@
-""" Contains the core of the SREA algorithm.
+"""Contains the core of the SREA algorithm.
 
 This file is mostly unchanged from the original RobotBrunch code.
 
@@ -6,15 +6,13 @@ Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
 """
 
 import json
-import re
 import sys
 from math import floor, ceil
 import argparse
 import pulp
-from subprocess import Popen, PIPE
 
 from .stntools import STN, load_stn_from_json_file
-from .stntools.distempirical import invcdf_norm
+from .stntools.distempirical import invcdf_norm, invcdf_uniform
 
 # \file SREA.py
 #
@@ -213,26 +211,33 @@ def srea_LP(inputstn,
         bounds, deltas, prob = probContainer
 
     for (i, j), edge in list(inputstn.contingent_edges.items()):
-        p_ij = invcdf_norm(1.0-alpha*0.5, edge.mu, edge.sigma)
-        p_ji = -invcdf_norm(alpha*0.5, edge.mu, edge.sigma)
-        limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma)
-        limit_ji = -invcdf_norm(0.003, edge.mu, edge.sigma)
-        #p_ij = 1000*invCDF_map[edge.distribution][one_minus_alpha]
-        #p_ji = -1000*invCDF_map[edge.distribution][alpha]
-        #limit_ij = 1000*invCDF_map[edge.distribution]['1.0']
-        #limit_ji = -1000*invCDF_map[edge.distribution]['0.0']
+        if edge.dtype() == "gaussian":
+            p_ij = invcdf_norm(1.0 - alpha * 0.5, edge.mu, edge.sigma)
+            p_ji = -invcdf_norm(alpha * 0.5, edge.mu, edge.sigma)
+            limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma)
+            limit_ji = -invcdf_norm(0.003, edge.mu, edge.sigma)
+            # p_ij = 1000*invCDF_map[edge.distribution][one_minus_alpha]
+            # p_ji = -1000*invCDF_map[edge.distribution][alpha]
+            # limit_ij = 1000*invCDF_map[edge.distribution]['1.0']
+            # limit_ji = -1000*invCDF_map[edge.distribution]['0.0']
+        elif edge.dtype() == "uniform":
+            p_ij = invcdf_uniform(1.0 - alpha * 0.5, edge.dist_lb,
+                                  edge.dist_ub)
+            p_ji = -invcdf_uniform(alpha * 0.5, edge.dist_lb, edge.dist_ub)
+            limit_ij = invcdf_uniform(0.0, edge.dist_lb, edge.dist_ub)
+            limit_ji = -invcdf_uniform(1.0, edge.dist_lb, edge.dist_ub)
+
 
 
         deltas[(i, j)].upBound = limit_ij - p_ij
         deltas[(j, i)].upBound = limit_ji - p_ji
 
-
+        cons1 = bounds[(j, "+")] - bounds[(i, "+")] == p_ij + deltas[(i, j)]
+        cons2 = bounds[(j, "-")] - bounds[(i, "-")] == -p_ji - deltas[(j, i)]
         # Lund et al. LP (3)
-        addConstraint(bounds[(j, '+')] - bounds[(i, '+')]
-                      == p_ij + deltas[(i, j)], prob)
+        addConstraint(cons1, prob)
         # Lund et al. LP (4)
-        addConstraint(bounds[(j, '-')] - bounds[(i, '-')]
-                          == -p_ji - deltas[(j, i)], prob)
+        addConstraint(cons2, prob)
     # ##
     # Generate the objective function.
     #   Our objective function is SUM delta_ij
@@ -334,6 +339,7 @@ def srea_LP(inputstn,
 # Do not call srea directly.
 def main():
     # handle command line input
+    raise NotImplementedError
 
     parser = argparse.ArgumentParser()
 
@@ -373,7 +379,6 @@ def main():
 
     # FIXME: Do not pass None type to srea's invCDF argument.
     #output = srea(STN, None, debug = options.debugAlpha, debugLP = options.debugLP, decouple = options.decoupleLP)
-    raise NotImplementedError
 
     if output != None:
         alpha, stn = output
@@ -390,7 +395,6 @@ def main():
             for connected_edge in stn.getOutgoing(j):
                 edge.Cji = -max(-edge.Cji, edge.Cij -
                                 connected_edge.Cji-connected_edge.Cij)
-        print(stn)
 
     if options.saveSTN != None:
         with open(options.saveSTN, "w") as f:
