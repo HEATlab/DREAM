@@ -5,15 +5,15 @@ Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
 
-## Running Simulator
+## How to Run the Simulator
 
 Usage
 
 ```bash
 $ usage: run_simulator.py [-h] [-v] [-t THREADS] [-s SAMPLES] [-e EXECUTION]
                         [-o OUTPUT] [--ar-threshold AR_THRESHOLD]
-                        [--si-threshold SI_THRESHOLD] [--seed SEED]
-                        [--no-live]
+                        [--si-threshold SI_THRESHOLD] [--mit-parse]
+                        [--seed SEED] [--no-live]
                         stns [stns ...]
 ```
 
