@@ -61,12 +61,14 @@ def main():
                  output=args.output,
                  live_updates=(not args.no_live),
                  random_seed=random_seed,
-                 mitparse=args.mit_parse)
+                 mitparse=args.mit_parse,
+                 start_index=args.start_point,
+                 stop_index=args.stop_point)
 
 
 def across_paths(stn_paths, execution, threads, sim_count, sim_options,
                  output=None, live_updates=True, random_seed=None,
-                 mitparse=False):
+                 mitparse=False, start_index=0, stop_index=None):
     """Runs multiple simulations for each STN in the provided iterable.
 
     Args:
@@ -94,6 +96,14 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
     # We must separate these for loops because MIT stns can hold several
     # instances in a single file.
     for i, pair in enumerate(stn_pairs):
+        
+        if i < start_index:
+            continue
+
+        if stop_index is not None:
+            if i >= stop_index:
+                break
+
         path, stn = pair
         start_time = time.time()
         response_dict = multiple_simulations(stn, execution, sim_count,
@@ -371,6 +381,13 @@ def parse_args():
     parser.add_argument("--mit-parse", action="store_true",
                         help="Use MIT parsing to read in STN JSON files")
     parser.add_argument("--seed", default=None, help="Set the random seed")
+    parser.add_argument("--start-point", type=int, default=0,
+                        help="Index of STN to begin simulating at, "
+                        "inclusively. Default is '0'")
+    parser.add_argument("--stop-point", type=int,
+                        help="Index of STN to stop simulating at, "
+                        "exclusively. Do not set if you want to run through "
+                        "the entire data set.")
     parser.add_argument("--no-live", action="store_true",
                         help="Turn off live update printing")
     parser.add_argument("stns", help="The STN JSON files to run on",
