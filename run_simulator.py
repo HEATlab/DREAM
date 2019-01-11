@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 
 """
+Author: Jordan R. Abrahams (jabrahams@hmc.edu)
+Last Updated: 11 January 2018
+
 This program runs multiple Monte-Carlo simulations for a given execution
 strategy.
 
+This file is the primary running access point for the new RobotBrunch
+simulator. Thus, it holds the main() function.
 
+This file also holds the multithreading code, allowing large scale
+simulation runs to take place.
 """
 
 import sys
@@ -12,7 +19,7 @@ import sys
 try:
     assert (sys.version_info >= (3, 0))
 except AssertionError:
-    print("Simulations must be run with Python3 or greater")
+    print("Simulations must be run with Python3 or a later version.")
 
 import os
 import os.path
@@ -23,10 +30,11 @@ import numpy as np
 
 
 from libheat import functiontimer
-from libheat.stntools import STN, load_stn_from_json_file, mitparser
+from libheat.stntools import load_stn_from_json_file, mitparser
 from libheat.montsim import Simulator
 from libheat.dmontsim import DecoupledSimulator
 import libheat.printers as pr
+import libheat.parseindefinite
 from libheat import sim2csv
 
 MAX_SEED = 2 ** 31 - 1
@@ -53,6 +61,15 @@ def main():
     sim_options = {"ar_threshold": args.ar_threshold,
                    "alp_threshold": args.si_threshold,
                    "si_threshold": args.si_threshold}
+    
+    # Check to see if we need to create the ordering pairs from the parsed
+    # user input.
+
+    if args.ordering_pairs is not None:
+        ordering_pairs = libheat.parseindefinite.parse_ind_arg(
+                args.ordering_pairs)
+    else:
+        ordering_pairs = None
 
     # simulate across multiple paths.
     stn_paths = folder_harvest(args.stns, recurse=True, only_json=True)
@@ -63,12 +80,14 @@ def main():
                  random_seed=random_seed,
                  mitparse=args.mit_parse,
                  start_index=args.start_point,
-                 stop_index=args.stop_point)
+                 stop_index=args.stop_point,
+                 ordering_pairs=ordering_pairs)
 
 
 def across_paths(stn_paths, execution, threads, sim_count, sim_options,
                  output=None, live_updates=True, random_seed=None,
-                 mitparse=False, start_index=0, stop_index=None):
+                 mitparse=False, start_index=0, stop_index=None,
+                 ordering_pairs=None):
     """Runs multiple simulations for each STN in the provided iterable.
 
     Args:
@@ -82,9 +101,12 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
         random_seed (int, optional): The random seed to start out with,
             defaults to a random... random seed.
         mitparse (boolean, optional): Parse STN JSON files as MIT format.
+        ordering_pairs (list, optional): List of tuples of AR and SC settings.
+            Each STN will be run with a separate simulation for each tuple.
     """
-    num_paths = len(stn_paths)
     stn_pairs = []
+    # Collect the STNs from all the passed in paths
+    # Make sure we keep the path around though, and keep them in the pair.
     for i, path in enumerate(stn_paths):
         if mitparse:
             mitstns = mitparser.mit2stn(path, add_z=True, connect_origin=True)
@@ -96,68 +118,92 @@ def across_paths(stn_paths, execution, threads, sim_count, sim_options,
     # We must separate these for loops because MIT stns can hold several
     # instances in a single file.
     for i, pair in enumerate(stn_pairs):
-        
         if i < start_index:
             continue
-
         if stop_index is not None:
             if i >= stop_index:
                 break
+        if ordering_pairs is not None:
+            for j, execution_setting in enumerate(ordering_pairs):
+                sim_option_instance = sim_options.copy()
+                sim_option_instance["ar_threshold"] = execution_setting[0]
+                sim_option_instance["si_threshold"] = execution_setting[1]
+                results_dict = _run_stage(pair, execution, sim_count, threads,
+                                      random_seed, sim_option_instance)
+                if live_updates:
+                    _print_results(results_dict,
+                                   j + len(ordering_pairs)*i + 1,
+                                   len(stn_pairs)*len(ordering_pairs))
+                
+                if output is not None:
+                    sim2csv.save_csv_row(results_dict, output)
+    
+        
+        else:
+            results_dict = _run_stage(pair, execution, sim_count, threads,
+                                      random_seed, sim_options)
+            if live_updates:
+                _print_results(results_dict, i + 1, len(stn_pairs))
+            
+            if output is not None:
+                sim2csv.save_csv_row(results_dict, output)
 
-        path, stn = pair
-        start_time = time.time()
-        response_dict = multiple_simulations(stn, execution, sim_count,
-                                             threads=threads,
-                                             random_seed=random_seed,
-                                             sim_options=sim_options)
-        runtime = time.time() - start_time
 
-        results = response_dict["sample_results"]
-        reschedules = response_dict["reschedules"]
-        sent_schedules = response_dict["sent_schedules"]
+def _run_stage(pair, execution, sim_count, threads, random_seed, sim_options):
+    """Run a single stage of the multiple simulation set up."""
 
-        robustness = results.count(True)/len(results)
-        vert_count = len(stn.verts)
-        max_verts_on_agent = max_agent_verts(stn)
-        mean_verts_on_agent = (len(stn.verts) - 1)/len(stn.agents)
-        cont_dens = len(stn.contingent_edges)/len(stn.edges)
-        synchrony = len(stn.interagent_edges)/len(stn.edges)
+    path, stn = pair
+    
+    start_time = time.time()
+    response_dict = multiple_simulations(stn, execution, sim_count,
+                                         threads=threads,
+                                         random_seed=random_seed,
+                                         sim_options=sim_options)
+    runtime = time.time() - start_time
 
-        total_sd = 0
-        for e in stn.contingent_edges.values():
-            try:
-                total_sd += e.sigma
-            except ValueError:
-                continue
-        sd_avg = total_sd / len(stn.contingent_edges)
+    results = response_dict["sample_results"]
+    reschedules = response_dict["reschedules"]
+    sent_schedules = response_dict["sent_schedules"]
 
-        results_dict = {}
-        results_dict["execution"] = execution
-        results_dict["robustness"] = robustness
-        results_dict["threads"] = threads
-        results_dict["random_seed"] = random_seed
-        results_dict["runtime"] = runtime
-        results_dict["samples"] = sim_count
-        results_dict["timestamp"] = time.time()
-        results_dict["stn_path"] = path
-        results_dict["stn_name"] = stn.name
-        results_dict["ar_threshold"] = sim_options["ar_threshold"]
-        results_dict["si_threshold"] = sim_options["si_threshold"]
-        results_dict["synchronous_density"] = synchrony
-        results_dict["sd_avg"] = sd_avg
-        results_dict["vert_count"] = vert_count
-        results_dict["agents"] = len(stn.agents)
-        results_dict["mean_verts_agent"] = mean_verts_on_agent
-        results_dict["max_verts_agent"] = max_verts_on_agent
-        results_dict["contingent_density"] = cont_dens
-        results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
-        results_dict["send_freq"] = sum(sent_schedules)/len(sent_schedules)
+    robustness = results.count(True)/len(results)
+    vert_count = len(stn.verts)
+    max_verts_on_agent = max_agent_verts(stn)
+    mean_verts_on_agent = (len(stn.verts) - 1)/len(stn.agents)
+    cont_dens = len(stn.contingent_edges)/len(stn.edges)
+    synchrony = len(stn.interagent_edges)/len(stn.edges)
 
-        if output is not None:
-            sim2csv.save_csv_row(results_dict, output)
+    total_sd = 0
+    for e in stn.contingent_edges.values():
+        try:
+            total_sd += e.sigma
+        except ValueError:
+            continue
+    sd_avg = total_sd / len(stn.contingent_edges)
 
-        if live_updates:
-            _print_results(results_dict, i + 1, len(stn_pairs))
+    results_dict = {}
+    results_dict["execution"] = execution
+    results_dict["robustness"] = robustness
+    results_dict["threads"] = threads
+    results_dict["random_seed"] = random_seed
+    results_dict["runtime"] = runtime
+    results_dict["samples"] = sim_count
+    results_dict["timestamp"] = time.time()
+    results_dict["stn_path"] = path
+    results_dict["stn_name"] = stn.name
+    results_dict["ar_threshold"] = sim_options["ar_threshold"]
+    results_dict["si_threshold"] = sim_options["si_threshold"]
+    results_dict["synchronous_density"] = synchrony
+    results_dict["sd_avg"] = sd_avg
+    results_dict["vert_count"] = vert_count
+    results_dict["agents"] = len(stn.agents)
+    results_dict["mean_verts_agent"] = mean_verts_on_agent
+    results_dict["max_verts_agent"] = max_verts_on_agent
+    results_dict["contingent_density"] = cont_dens
+    results_dict["reschedule_freq"] = sum(reschedules)/len(reschedules)
+    results_dict["send_freq"] = sum(sent_schedules)/len(sent_schedules)
+
+    return results_dict
+
 
 
 def _print_results(results_dict, i, stn_count):
@@ -219,24 +265,14 @@ def multiple_simulations(starting_stn, execution_strat,
     if random_seed is not None:
         seed_gen = np.random.RandomState(random_seed)
         seeds = [seed_gen.randint(MAX_SEED) for i in range(count)]
-        if execution_strat == "da":
-            tasks = [(DecoupledSimulator(seeds[i]), starting_stn,
-                      execution_strat,
-                      sim_options, i)
-                     for i in range(count)]
-        else:
-            tasks = [(Simulator(seeds[i]), starting_stn, execution_strat,
-                      sim_options, i)
-                     for i in range(count)]
+        tasks = _make_simulator_tasks(seeds, starting_stn,
+                                      execution_strat, sim_options,
+                                      count)
     else:
-        if execution_strat == "da":
-            tasks = [(DecoupledSimulator(None), starting_stn, execution_strat,
-                      sim_options, i)
-                     for i in range(count)]
-        else:
-            tasks = [(Simulator(None), starting_stn, execution_strat,
-                      sim_options, i)
-                     for i in range(count)]
+        tasks = _make_simulator_tasks(None, starting_stn,
+                                      execution_strat, sim_options,
+                                      count)
+
     if threads > 1:
         print("Using multithreading; threads = {}".format(threads))
         try_count = 0
@@ -264,6 +300,31 @@ def multiple_simulations(starting_stn, execution_strat,
     response_dict = {"sample_results": sample_results, "reschedules":
                      reschedules, "sent_schedules": sent_schedules}
     return response_dict
+
+
+def _make_simulator_tasks(seeds, stn, execution_strat, sim_options, count):
+    """Helper function to generate a list of tasks for the thread pool"""
+    if seeds is not None:
+        if execution_strat == "da":
+            tasks = [(DecoupledSimulator(seeds[i]), stn,
+                      execution_strat,
+                      sim_options, i)
+                     for i in range(count)]
+        else:
+            tasks = [(Simulator(seeds[i]), stn, execution_strat,
+                      sim_options, i)
+                     for i in range(count)]
+    else:
+        if execution_strat == "da":
+            tasks = [(DecoupledSimulator(None), stn,
+                      execution_strat,
+                      sim_options, i)
+                     for i in range(count)]
+        else:
+            tasks = [(Simulator(None), stn, execution_strat,
+                      sim_options, i)
+                     for i in range(count)]
+    return tasks
 
 
 def _multisim_thread_helper(tup):
@@ -336,9 +397,11 @@ def max_agent_verts(stn):
     """Returns the maximum amount of vertices belonging to any one agent"""
     return max([get_agent_verts(stn, a) for a in stn.agents])
 
+
 def mean_agent_verts(stn):
     counts = [get_agent_verts(stn, a) for a in stn.agents]
     return sum(counts)/len(counts)
+
 
 def get_agent_verts(stn, agent):
     """Returns the number of vertices owned by the provided agent in the given
@@ -359,8 +422,7 @@ def get_agent_verts(stn, agent):
 
 
 def parse_args():
-    """Parse the program arguments
-    """
+    """Parse the program arguments."""
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Turns on more printing")
@@ -381,13 +443,21 @@ def parse_args():
     parser.add_argument("--mit-parse", action="store_true",
                         help="Use MIT parsing to read in STN JSON files")
     parser.add_argument("--seed", default=None, help="Set the random seed")
+    parser.add_argument("--ordering-pairs", type=str, help="Flag "
+                        "for indefinite ordering. Requires a string "
+                        "argument, which takes the form '[(XX,XX), (XX,XX), "
+                        " ...]' which creates a new simulation for each "
+                        "argument pari, and runs on each on a single STN "
+                        " until moving to the next STN. Pairs are (AR,SC).")
     parser.add_argument("--start-point", type=int, default=0,
                         help="Index of STN to begin simulating at, "
-                        "inclusively. Default is '0'")
+                        "inclusively. Default is '0'. Not thoroughly tested, "
+                        "be warned.")
     parser.add_argument("--stop-point", type=int,
                         help="Index of STN to stop simulating at, "
                         "exclusively. Do not set if you want to run through "
-                        "the entire data set.")
+                        "the entire data set. Not thoroughly tested, be "
+                        "warned.")
     parser.add_argument("--no-live", action="store_true",
                         help="Turn off live update printing")
     parser.add_argument("stns", help="The STN JSON files to run on",
@@ -397,4 +467,5 @@ def parse_args():
 
 if __name__ == "__main__":
     main()
+    print("Time spent per function:")
     print(functiontimer.get_times())
