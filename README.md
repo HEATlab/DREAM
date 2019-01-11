@@ -5,6 +5,8 @@ Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
 
+These can be installed via your standard python3 pip method of `pip install -r requirements.txt`.
+
 ## How to Run the Simulator
 
 Usage
