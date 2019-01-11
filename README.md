@@ -7,6 +7,8 @@ Requirements (python packages) to run are listed in
 
 These can be installed via your standard python3 pip method of `pip install -r requirements.txt`.
 
+Newer versions may be used, but these versions have been selected to work on HMC's shared server, Knuth.
+
 ## How to Run the Simulator
 
 Usage
