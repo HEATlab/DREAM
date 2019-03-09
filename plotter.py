@@ -15,12 +15,14 @@ from libheat.plotting.plot_utils import framefilters
 from libheat.plotting.plot_arsc import plot_arsc_cross
 from libheat.plotting.plot_ara import plot_ara
 from libheat.plotting.plot_syncvrobust import plot_syncvrobust
+from libheat.plotting.plot_scatters import communication as com_scatter
+from libheat.plotting.plot_scatters import reschedules as res_scatter
 import libheat.plotting.dream_details as dream_details
 
 
 CM2INCH = 0.393701
-DEFAULT_WIDTH = 16
-DEFAULT_HEIGHT = 11
+DEFAULT_WIDTH = 12
+DEFAULT_HEIGHT = 6
 
 
 def main():
@@ -42,6 +44,8 @@ def main():
     plt.figure(figsize=(CM2INCH*DEFAULT_WIDTH, CM2INCH*DEFAULT_HEIGHT))
     ax = plt.gca()
     ax.tick_params(bottom=True, top=True, left=True, right=True)
+
+    print(full_df["stn_path"].nunique())
 
     if args.syncvrobust:
         plot_syncvrobust(full_df, errorbars=True)
@@ -70,6 +74,10 @@ def main():
     elif args.best_sc:
         dream_details.dream_best_sc(full_df)
         return
+    elif args.com_scatter:
+        com_scatter(full_df)
+    elif args.res_scatter:
+        res_scatter(full_df)
 
     if args.output is None:
         plt.show()
@@ -395,35 +403,11 @@ def parse_args():
     parser.add_argument("--gain-table-q2", action="store_true")
     parser.add_argument("--best-ar", action="store_true")
     parser.add_argument("--best-sc", action="store_true")
+    parser.add_argument("--res-scatter", action="store_true")
+    parser.add_argument("--com-scatter", action="store_true")
     parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output file name")
     return parser.parse_args()
-
-
-def analyze_data_tightness(frame, columns, executions, interagent_tightnesses):
-    """Retrieve a frame of the means
-
-    Args:
-        frame (DataFrame): Frame object of the data.
-        columns (tuple): Tuple of strings holding the columns we want to
-            find the means of.
-        executions (tuple): Which execution strategies to look at?
-        interagent_tightnesses (tuple): Integers of tightnesses.
-    """
-    mean_frame = pd.DataFrame(columns=['tght']+list(columns))
-    for tght in interagent_tightnesses:
-
-        tight_frame = frame.loc[frame['tght'] == tght]
-        # Remove complete failure rows.
-        remove_zeroed(tight_frame, executions)
-
-        means = {'tght': tght}
-        for execution in columns:
-            execution_col = tight_frame[execution]
-            count = execution_col.shape[0]
-            means[execution] = (sum(execution_col)/float(count))
-        mean_frame = mean_frame.append(means, ignore_index=True)
-    print(mean_frame[TO_SHOW])
 
 
 if __name__ == "__main__":
