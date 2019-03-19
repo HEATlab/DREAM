@@ -24,16 +24,19 @@ def framefilters(df, add_sync_degree=True):
         any columns we wish to add.
     """
     if add_sync_degree:
-        # Add the synchrony column, extracted from the file name.
-        sync_column = []
-        for i, row in df.iterrows():
-            foldername = row["stn_path"].split("/")[-2]
-            synchrony = float(foldername.split("_")[4][1:])*0.001
-            sync_column.append(synchrony)
-        df = df.assign(sync_deg=pd.Series(sync_column))
+            # Add the synchrony column, extracted from the file name.
+            sync_column = []
+            for i, row in df.iterrows():
+                foldername = row["stn_path"].split("/")[-2]
+                try:
+                    synchrony = float(foldername.split("_")[4][1:])*0.001
+                except IndexError:
+                    synchrony = "NaN"
+                sync_column.append(synchrony)
+            df = df.assign(sync_deg=pd.Series(sync_column))
         # Remove zeros present in the data.
     df = clearzero(df)
-    return df[df.samples >= 100]
+    return df[df.samples >= 50]
 
 
 def clearzero(df):

@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 
 """
+
+Original Description:
 Analyses and plots the old space-separated data files.
+
+Comments:
+The above is quite misleading, since this file has transformed significantly
+from the original purpose. It's become the primary file for running any of
+the present plotting code.
+
+Author: Jordan R Abrahams
 """
 
+import os
 import argparse
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -20,7 +30,9 @@ from libheat.plotting.plot_scatters import reschedules as res_scatter
 import libheat.plotting.dream_details as dream_details
 
 
+# Conversion between centimetres and US inches.
 CM2INCH = 0.393701
+# Default sizes in centimetres.
 DEFAULT_WIDTH = 12
 DEFAULT_HEIGHT = 6
 
@@ -31,7 +43,8 @@ def main():
 
     args = parse_args()
     full_df = None
-    for f in args.file:
+    files = flatten_files(args.file)
+    for f in files:
         if full_df is None:
             full_df = pd.read_csv(f, header=0)
         else:
@@ -51,10 +64,14 @@ def main():
         plot_syncvrobust(full_df, errorbars=True)
     elif args.reschedules:
         plot_threshold(full_df, "si")
-    elif args.arsi_threshold:
-        ax.set_title("DREAM Threshold SC Analysis (m_AR = 1)")
-        plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True)
-        #ax.set_title("DREAM Threshold AR Analysis (m_SC = 0)")
+    elif args.dream_cross_section:
+        # Plot a cross section of the DREAM data.
+        #ax.set_title("DREAM Threshold SC Analysis (m_AR = 1)")
+        #plot_arsc_cross(full_df, ar_threshold=1.0, ax=ax, plot_srea=True,
+        #                threshold_range=[0.0, 0.0625, 0.125, 0.25, 0.5, 1])
+        ax.set_title("DREAM Threshold AR Analysis (m_SC = 0)")
+        plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True,
+                        threshold_range=[0.0, 0.0625, 0.125, 0.25, 0.5, 1])
         #plot_arsc_cross(full_df, sc_threshold=0.0, ax=ax, plot_srea=True)
     elif args.ara_threshold:
         ax.set_title("DREA-AR Alternate")
@@ -85,73 +102,21 @@ def main():
         plt.savefig(args.output)
 
 
-def plot_robustness(df, plot_type="box"):
-    early = df.loc[df['execution'] == "early"]
-    srea = df.loc[df['execution'] == "srea"]
-    drea = df.loc[df['execution'] == "drea"]
-    drea_alp = df.loc[df['execution'] == "drea-alp"]
-    drea_si = df.loc[df['execution'] == "drea-si"]
-    drea_ar = df.loc[df['execution'] == "drea-ar"]
-
-    early_rob = early["robustness"]
-    srea_rob = srea["robustness"]
-    drea_rob = drea["robustness"]
-    drea_alp_rob = drea_alp["robustness"]
-    drea_si_rob = drea_si["robustness"]
-    drea_ar_rob = drea_ar["robustness"]
-
-    if plot_type == "box":
-        plt.boxplot((early_rob.tolist(), srea_rob.tolist(), drea_rob.tolist()))
-    elif plot_type == "bar":
-        plt.bar(range(3), early_rob.mean(), srea_rob.mean(), drea_rob.mean())
-    elif plot_type == "line":
-        thresholds = [0.0, 0.25, 0.5, 0.75, 1.0]
-        # SI
-        rob_means = []
-        rob_sd = []
-        for i in thresholds:
-            i_drea_si = drea_si.loc[drea_si["threshold"] == i]
-            n = sum(i_drea_si["samples"])
-            p = sum(i_drea_si["samples"] * i_drea_si["robustness"])\
-                    / n
-            sem = (p*(1-p)/n)**0.5
-
-            rob_means.append(p)
-            rob_sd.append(sem)
-        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
-                     linewidth=1)
-        # ALP
-        rob_means = []
-        rob_sd = []
-        for i in thresholds:
-            i_drea_alp = drea_alp.loc[drea_si["threshold"] == i]
-            n = sum(i_drea_alp["samples"])
-            p = sum(i_drea_alp["samples"] * i_drea_alp["robustness"])\
-                    / n
-            sem = (p*(1-p)/n)**0.5
-
-            rob_means.append(p)
-            rob_sd.append(sem)
-        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=4,
-                     linewidth=1)
-        # AR
-        rob_means = []
-        rob_sd = []
-        for i in thresholds:
-            i_drea_ar = drea_ar.loc[drea_si["threshold"] == i]
-            n = sum(i_drea_ar["samples"])
-            p = sum(i_drea_ar["samples"] * i_drea_ar["robustness"])\
-                    / n
-            sem = (p*(1-p)/n)**0.5
-
-            rob_means.append(p)
-            rob_sd.append(sem)
-        plt.errorbar(thresholds, rob_means, yerr=rob_sd, capsize=3,
-                     linewidth=0)
-
-        plt.plot(thresholds, np.full(4, drea_rob.mean()))
-        plt.plot(thresholds, np.full(5, srea_rob.mean()))
-    plt.show()
+def flatten_files(files):
+    """Check all files in the provided list. If a directory, recurse on
+        on those files.
+    """
+    if not isinstance(files, list):
+        raise TypeError("files is instance of {}, not of type list"
+                .format(type(files)))
+    if len(files) == 0:
+        return []
+    else:
+        if os.path.isdir(files[0]):
+            subchildren = [ files[0] + "/" + i for i in os.listdir(files[0])]
+            return flatten_files(subchildren) + flatten_files(files[1:])
+        else:
+            return [files[0]] + flatten_files(files[1:])
 
 
 def sd_v_robust(df):
@@ -364,30 +329,6 @@ def plot_reschedule(df, plot_type="box"):
     plt.show()
 
 
-def color_boxes(bp):
-    plt.setp(bp["boxes"][0], color="red")
-    plt.setp(bp["boxes"][1], color="blue")
-    plt.setp(bp["boxes"][2], color="green")
-
-    plt.setp(bp["medians"][0], color="red")
-    plt.setp(bp["medians"][1], color="blue")
-    plt.setp(bp["medians"][2], color="green")
-
-    plt.setp(bp["caps"][0], color="red")
-    plt.setp(bp["caps"][1], color="red")
-    plt.setp(bp["caps"][2], color="blue")
-    plt.setp(bp["caps"][3], color="blue")
-    plt.setp(bp["caps"][4], color="green")
-    plt.setp(bp["caps"][5], color="green")
-
-    plt.setp(bp["whiskers"][0], color="red")
-    plt.setp(bp["whiskers"][1], color="red")
-    plt.setp(bp["whiskers"][2], color="blue")
-    plt.setp(bp["whiskers"][3], color="blue")
-    plt.setp(bp["whiskers"][4], color="green")
-    plt.setp(bp["whiskers"][5], color="green")
-
-
 def parse_args():
     """Parse arguments provided.
     """
@@ -396,15 +337,24 @@ def parse_args():
     parser.add_argument("-r", "--robustness", action="store_true")
     parser.add_argument("--syncvrobust", action="store_true")
     parser.add_argument("-s", "--reschedules", action="store_true")
-    parser.add_argument("--arsi-threshold", action="store_true")
+    parser.add_argument("--dream-cross-section", action="store_true")
     parser.add_argument("--ara-threshold", action="store_true")
     parser.add_argument("--table", action="store_true")
-    parser.add_argument("--gain-table", action="store_true")
-    parser.add_argument("--gain-table-q2", action="store_true")
+    parser.add_argument("--gain-table", action="store_true",
+                        help="Produce a table of robustness gains over AR/SC"
+                        +" thresholds. E.g. normalise over many STNs how AR/SC"
+                        +" affect robustness.")
+    parser.add_argument("--gain-table-q2", action="store_true",
+                         help=("I can't actually remember how this differs"
+                               +" from --gain-table"))
     parser.add_argument("--best-ar", action="store_true")
     parser.add_argument("--best-sc", action="store_true")
-    parser.add_argument("--res-scatter", action="store_true")
-    parser.add_argument("--com-scatter", action="store_true")
+    parser.add_argument("--res-scatter", action="store_true",
+                        help="Generates a reschedule rate v.s. robustness"
+                            +" scatter plot, as shown in Abrahams et al.")
+    parser.add_argument("--com-scatter", action="store_true",
+                        help="Generates a communication rate v.s. robustness"
+                            +" scatter plot, as shown in Abrahams et al.")
     parser.add_argument("-o", "--output", type=str, default=None,
                         help="Output file name")
     return parser.parse_args()

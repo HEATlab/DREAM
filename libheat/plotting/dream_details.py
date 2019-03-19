@@ -70,18 +70,21 @@ def dream_table(df, **kwargs):
             row_dict = {"ar_threshold": ar_thresh,
                         "sc_threshold": sc_thresh,
                         "robustness": data.robs[i],
-                        "robustness_pm": data.robs_err[i]}
+                        "robustness_pm": data.robs_err[i],
+                        "send_freq": data.sends[i],
+                        "reschedule_freq": data.res[i],
+                        "runtime": data.runtimes[i]}
             outdf = outdf.append(row_dict, ignore_index=True, sort=True)
 
-    print(outdf)
-    print("DREA Rob: {}".format(drea["robustness"].mean()))
-    print("DREA Rob +/-: {}".format(drea["robustness"].sem()))
-    print("DREA Runtime: {}".format(drea["runtime"].mean()))
-    print("DREA Runtime +/-: {}".format(drea["runtime"].sem()))
-    print("DREA Reschedule: {}".format(drea["reschedule_freq"].mean()))
-    print("DREA Reschedule +/-: {}".format(drea["reschedule_freq"].sem()))
-    print("DREA Deployment: {}".format(drea["send_freq"].mean()))
-    print("DREA Deployment +/-: {}".format(drea["send_freq"].sem()))
+    #print(outdf)
+    #print("DREA Rob: {}".format(drea["robustness"].mean()))
+    #print("DREA Rob +/-: {}".format(drea["robustness"].sem()))
+    #print("DREA Runtime: {}".format(drea["runtime"].mean()))
+    #print("DREA Runtime +/-: {}".format(drea["runtime"].sem()))
+    #print("DREA Reschedule: {}".format(drea["reschedule_freq"].mean()))
+    #print("DREA Reschedule +/-: {}".format(drea["reschedule_freq"].sem()))
+    #print("DREA Deployment: {}".format(drea["send_freq"].mean()))
+    #print("DREA Deployment +/-: {}".format(drea["send_freq"].sem()))
     return outdf
 
 
@@ -94,7 +97,7 @@ def dream_gain_table(df, **kwargs):
             sc_threshold (float): Holding si_value.
             ar_threshold (float): Holding ar_value.
             threshold_range (list): Threshold range to plot.
-            comparison (str):
+            comparison (dataframe): What set of values to compare against.
 
     Return:
         Returns a DataFrame with columns `ar_threshold`, `sc_threshold`,
@@ -113,15 +116,16 @@ def dream_gain_table(df, **kwargs):
         comparison = kwargs["comparison"]
     else:
         comparison = drea
+    
+    print(df.head())
 
     dreamdf = pd.DataFrame(columns=COLUMNS)
     # Check naming of arsi/arsc
     naming = "arsc"
     sc_col_name = "sc_threshold"
     if df.loc[df['execution'] == "arsc"].empty:
-        naming = "arsi"
         sc_col_name = "si_threshold"
-
+        naming = "arsi"
     for ar_thresh in thresholds:
         # Iterate through AR Thresholds, and then gather the mean robustnesses
         # for each SC threshold.
@@ -139,17 +143,21 @@ def dream_gain_table(df, **kwargs):
                         "reschedule_freq": data.res[i],
                         "deployment": data.sends[i]}
             dreamdf = dreamdf.append(row_dict, ignore_index=True, sort=True)
-
+    
+    # Recall, we used to name communications as deployments.
     deployment_metric = dreamdf["improv_rob"]/dreamdf["deployment"]
     #deployment_metric.rename(index=str, columns={"0": "metric"})
-    print(dreamdf["improv_rob"])
-    print(dreamdf["deployment"])
     dreamdf["metric"] = deployment_metric
+    
+    co = generate_contour_values(dreamdf, thresholds, thresholds,
+                                 "robustness") 
+    print(co)
 
+    # Get only the values here that are interesting to us.
     pretty_print = dreamdf[["ar_threshold", "sc_threshold", "robustness",
                             "robustness_pm", "metric"]]
-    print(pretty_print.sort_values(by=["metric"]))
-
+    #print(pretty_print.sort_values(by=["ar_threshold"]))
+    
     print("DREA Rob: {}".format(drea["robustness"].mean()))
     print("DREA Rob +/-: {}".format(drea["robustness"].sem()))
     print("DREA Runtime: {}".format(drea["runtime"].mean()))
@@ -158,7 +166,7 @@ def dream_gain_table(df, **kwargs):
     print("DREA Reschedule +/-: {}".format(drea["reschedule_freq"].sem()))
     print("DREA Deployment: {}".format(drea["send_freq"].mean()))
     print("DREA Deployment +/-: {}".format(drea["send_freq"].sem()))
-
+    
 
 def dream_best_ar(df):
     dream = df.loc[(df["execution"] == "drea-ar") & (df["si_threshold"] == 0)]
@@ -209,6 +217,25 @@ def dream_best_sc(df):
     print(dream_summary.sort_values(by="metric"))
     print("SREA robustness: {}".format(srea["robustness"].mean()))
 
+
+def generate_contour_values(df, ar_thresholds, sc_thresholds, coi):
+    """
+    Args:
+        df (DataFrame): DataFrame object to read from.
+        ar_thresholds (list): List of ar thresholds to grid search on.
+        sc_thresholds (list): List of sc thresholds to grid search on.
+        coi (str): Column of Interest to use as our third dimension.
+    """
+    full_grid = ""
+    for sc in sc_thresholds:
+        line = ""
+        for ar in ar_thresholds:
+            sli = df[(df.ar_threshold == ar) & (df.sc_threshold == sc)]
+            line += str(round(sli[coi].iat[0], 3))
+            line += ", "
+        line += "\n"
+        full_grid += line
+    return full_grid
 
 def dream_gain_table_q2(df, **kwargs):
     """Get DREAM/ARSC algorithm table, but this time focusing on the gain

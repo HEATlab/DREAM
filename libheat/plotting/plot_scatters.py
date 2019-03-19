@@ -47,8 +47,10 @@ def communication(df):
                 label="mSC = 1")
     plt.xlabel("Communications Relative to DREA")
     plt.ylabel("Robustness Relative to DREA")
+    plt.ylim(0.2, 1.08)
+    plt.xlim(0.2, 1.08)
     plt.title("Overall Communications V.S. Robustness")
-    plt.grid(color=(0.95, 0.95, 0.95), zorder=0)
+    plt.grid(color=(0.95, 0.95, 0.95), zorder=-1)
     plt.legend(prop={'size': 6})
     plt.tight_layout()
 
@@ -62,6 +64,7 @@ def reschedules(df):
     df025 = tabledf.loc[tabledf["ar_threshold"] == 0.25]
     df05 = tabledf.loc[tabledf["ar_threshold"] == 0.5]
     df1 = tabledf.loc[tabledf["ar_threshold"] == 1]
+
 
     plt.scatter(df0["reschedule_freq"]/100,
                 df0["robustness"]/100,
@@ -95,7 +98,9 @@ def reschedules(df):
                 label="mAR = 1")
     plt.xlabel("Reschedules Relative to DREA")
     plt.ylabel("Robustness Relative to DREA")
+    plt.ylim(0.2, 1.08)
+    plt.xlim(0.2, 1.08)
     plt.title("Overall Reschedules V.S. Robustness")
-    plt.grid(color=(0.95, 0.95, 0.95), zorder=0)
+    plt.grid(color=(0.95, 0.95, 0.95), zorder=-1)
     plt.tight_layout()
-    plt.legend(prop={"size": 8})
+    plt.legend(prop={"size": 6}, loc="lower right", bbox_to_anchor=(0.3, 0.0))
