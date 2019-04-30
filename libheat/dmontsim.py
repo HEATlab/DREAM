@@ -1,6 +1,3 @@
-import numpy as np
-
-
 from .montsim import Simulator
 from .decoupling import optdecouple
 from .decoupling import sreadecouple

@@ -22,6 +22,7 @@ class Vertex(object):
     #  \param executed Flag for the simulator that indicates if the vertex
     #  has
     #                      been executed.
+
     def __init__(self, nodeID, ownerID, location=None):
         # The unique ID number of the vertex in the STN.
         self.nodeID = nodeID
@@ -92,7 +93,7 @@ class Edge(object):
         self.Cji = -Tmin
         """The negated minimum amount of time allotted."""
         self.distribution = distribution
-        """The string representation for this edge's probability 
+        """The string representation for this edge's probability
             distribution
         """
         self._sampled_time = 0
@@ -310,7 +311,6 @@ class STN(object):
         for e in self.get_all_edges():
             ecopy = e.copy()
             new_stn.add_created_edge(ecopy)
-            #new_stn.add_edge(e.i,e.j, -e.Cji, e.Cij, e.distribution)
 
         # Copy the agents list over
         new_stn.agents = list(self.agents)
@@ -367,7 +367,6 @@ class STN(object):
             if (e.i in vertIDList) and (e.j in vertIDList):
                 # TODO: should use copy()
                 subSTN.add_created_edge(e.copy())
-                #subSTN.add_edge(e.i, e.j, -e.Cji, e.Cij, e.distribution)
 
         # Assign the agents used in the STN
         subSTN.agents = agentsFound
@@ -515,7 +514,6 @@ class STN(object):
             return ((from_vert_id, to_vert_id) in self.interagent_edges or
                     (to_vert_id, from_vert_id) in self.interagent_edges)
 
-
     # \brief Removes a node from the STP
     #  \param nodeID the ID of the node to be removed
 
@@ -539,7 +537,7 @@ class STN(object):
                 if (i, j) in self.requirement_edges:
                     del self.requirement_edges[(i, j)]
 
-            #self.tris = [t for t in self.tris
+            # self.tris = [t for t in self.tris
             #             if t.i != nodeID and t.j != nodeID and t.k != nodeID]
 
     ##
@@ -567,8 +565,8 @@ class STN(object):
     #
     # @param i The first Node of the edge.
     # @param j The second Node of the edge.
-    # @return Returns an Edge object if one exists between i & j. If not, return
-    #   None.
+    # @return Returns an Edge object if one exists between i & j. If not,
+    #   return None.
     def get_edge(self, i, j):
         if (i, j) in self.edges:
             return self.edges[(i, j)]
@@ -584,8 +582,9 @@ class STN(object):
 
     def get_edge_weight(self, i, j):
         """Gets the directed edge weight of an edge from the STN
-        
-        Direction does matter. If no edge exists between i & j, returns infinity.
+
+        Direction does matter. If no edge exists between i & j, returns
+        infinity.
         If i = j, this function returns 0.
 
         Args:
@@ -710,8 +709,8 @@ class STN(object):
         return [e for e in self.get_all_edges() if e.i == node_id]
 
     def get_incoming_contingent(self, nodeID):
-        ctg = [self.contingent_edges[(i, j)] for (i, j) in self.contingent_edges
-               if j == nodeID]
+        ctg = [self.contingent_edges[(i, j)] for (i, j)
+               in self.contingent_edges if j == nodeID]
         if len(ctg) > 1:
             print('[Error]: {} incoming contingent edges!\n{}'.format(
                 len(ctg), ctg))
@@ -916,9 +915,10 @@ class STN(object):
     #    else:
     #        return bestSTN, alpha
 
-    # An STN is strongly controllable if any assignment of values for executable
-    #   timepoints is guaranteed to be consistent with all constraints
-    #   (irrespective of contingent edges) (copied from Lund et al. 2017).
+    # An STN is strongly controllable if any assignment of values for
+    #   executable timepoints is guaranteed to be consistent with all
+    #   constraints (irrespective of contingent edges)
+    #   (copied from Lund et al. 2017).
 
     def isStronglyControllable(self, debug=False, returnSTN=False):
         if not self.possiblyStronglyControllable:
@@ -963,10 +963,11 @@ class STN(object):
                     l_j = 0
                     u_j = 0
 
-                # This is taken from the 1998 paper by Vidal et al. on controllability
+                # This is taken from the 1998 paper by Vidal et al. on
+                # controllability
                 if debug:
-                    print("Cij: {}  Cji: {}  l_i: {}  u_i: {}  l_j: {}  u_j: {}".format(
-                        e.Cij, e.Cji, l_i, u_i, l_j, u_j))
+                    st = "Cij: {}  Cji: {}  l_i: {}  u_i: {}  l_j: {}  u_j: {}"
+                    print(st.format(e.Cij, e.Cji, l_i, u_i, l_j, u_j))
                 lower_bound = -e.Cji + u_i - l_j
                 upper_bound = e.Cij + l_i - u_j
 
@@ -975,12 +976,16 @@ class STN(object):
                     new_stn.update_edge(j, i, -lower_bound)
                     if debug:
                         print(
-                            "updated edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
+                            "updated edge {}->{}: [{},{}]"
+                            .format(i, j, lower_bound, upper_bound)
+                        )
                 else:
                     new_stn.add_edge(i, j, lower_bound, upper_bound)
                     if debug:
                         print(
-                            "added edge {}->{}: [{},{}]".format(i, j, lower_bound, upper_bound))
+                            "added edge {}->{}: [{},{}]"
+                            .format(i, j, lower_bound, upper_bound)
+                        )
 
         new_stn.agents = list(self.agents)
 

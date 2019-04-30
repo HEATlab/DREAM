@@ -1,7 +1,7 @@
 import pulp
 
 
-from ..stntools import STN, Edge
+from ..stntools import STN
 from ..stntools.distempirical import invcdf_norm
 
 
@@ -48,9 +48,7 @@ def alpha_binary_search(stn: STN, fidelity=0.001):
     """
     upper_bound = 1.0
     lower_bound = 0.0
-    found = False
     current_alpha = -1.0
-    guide = None
     assignments = None
     while True:
         new_alpha = (upper_bound + lower_bound)/2
@@ -105,9 +103,9 @@ def maximize_interagent_flex(stn: STN, alpha: float):
     # Create a set of synchrony points.
     synchrony_points = set()
     for i, j in synchrony_pairs:
-        if not i in synchrony_points:
+        if i not in synchrony_points:
             synchrony_points.add(i)
-        if not j in synchrony_points:
+        if j not in synchrony_points:
             synchrony_points.add(j)
     if synchrony_points == set():
         print("No synchrony points")
@@ -169,13 +167,19 @@ def _wilson_lp_setup(stn: STN):
     for i in vert_gen:
 
         dual_events[(i, "+")] = pulp.LpVariable("t_{}_p".format(i),
-            lowBound=-float(stn.get_edge_weight(i, 0)),
-            upBound=float(stn.get_edge_weight(0, i))
-        )
+                                                lowBound=-
+                                                float(
+                                                    stn.get_edge_weight(i, 0)),
+                                                upBound=float(
+                                                    stn.get_edge_weight(0, i))
+                                                )
         dual_events[(i, "-")] = pulp.LpVariable("t_{}_n".format(i),
-            lowBound=-float(stn.get_edge_weight(i, 0)),
-            upBound=float(stn.get_edge_weight(0, i))
-        )
+                                                lowBound=-
+                                                float(
+                                                    stn.get_edge_weight(i, 0)),
+                                                upBound=float(
+                                                    stn.get_edge_weight(0, i))
+                                                )
         # Add the constraint to the LpProblem
         # Note that the zero timepoint is automatically constrained to start at
         # zero because get_edge_weight returns 0 for (0, 0) connection.
@@ -225,28 +229,25 @@ def _get_lp_assignments(prob):
     return assignments
 
 
-def get_decouple_constraints(stn, assignments):
-    """ Returns a set of STN Edge objects which represent interagent
-    decoupling constraints
-
-    Args:
-        stn (STN):
-        assignments (dict): Dict of the form {node_id: [min_time, max_time]}
-
-    Returns:
-        Returns a list of decoupling Edge objects.
-    """
-    z_constraints = set()
-    for edge_tuple in assignments.items():
-        #vert_from = edge_tuple[0][0]
-        vert_to = edge_tuple[0][1]
-
-        # Vert_from should always be 0, so we should be okay to assume such.
-        #assert (vert_from == 0)
-
-        min_val = assignments[(0, vert_to)][0]
-        max_val = assignments[(0, vert_to)][1]
-        for inter in stn.interagent_edges.keys():
-            new_edge = Edge(vert_from, vert_to, min_val, max_val)
-            z_constraints.add(new_edge)
-    return z_constraints
+"""The below function does not work at all."""
+# def get_decouple_constraints(stn, assignments):
+#     """ Returns a set of STN Edge objects which represent interagent
+#     decoupling constraints
+#
+#     Args:
+#         stn (STN):
+#         assignments (dict): Dict of the form {node_id: [min_time, max_time]}
+#
+#     Returns:
+#         Returns a list of decoupling Edge objects.
+#     """
+#     z_constraints = set()
+#     for edge_tuple in assignments.items():
+#         vert_to = edge_tuple[0][1]
+#
+#         min_val = assignments[(0, vert_to)][0]
+#         max_val = assignments[(0, vert_to)][1]
+#         for inter in stn.interagent_edges.keys():
+#             new_edge = Edge(vert_from, vert_to, min_val, max_val)
+#             z_constraints.add(new_edge)
+#     return z_constraints
