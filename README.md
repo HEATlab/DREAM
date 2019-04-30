@@ -2,6 +2,14 @@
 
 Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 
+This is the code is closely tied to the paper:
+
+Abrahams et al. 2019. DREAM: An Algorithm for Mitigating the Overhead of Robust Rescheduling.
+In _Proc. of the 29th International Conference on Automated Planning and
+Scheduling (ICAPS-2019)_.
+
+## Usage and Set Up
+
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
 
@@ -9,17 +17,22 @@ These can be installed via your standard python3 pip method of `pip install -r r
 
 Newer versions may be used, but these versions have been selected to work on HMC's shared server, Knuth.
 
+
 ## How to Run the Simulator
 
 Usage
 
 ```bash
-$ usage: run_simulator.py [-h] [-v] [-t THREADS] [-s SAMPLES] [-e EXECUTION]
+usage: run_simulator.py [-h] [-v] [-t THREADS] [-s SAMPLES] [-e EXECUTION]
                         [-o OUTPUT] [--ar-threshold AR_THRESHOLD]
                         [--si-threshold SI_THRESHOLD] [--mit-parse]
-                        [--seed SEED] [--no-live]
+                        [--seed SEED] [--ordering-pairs ORDERING_PAIRS]
+                        [--start-point START_POINT] [--stop-point STOP_POINT]
+                        [--no-live]
                         stns [stns ...]
 ```
+
+You may always use the `--help` option to get a full print out of every option.
 
 How to use DREAM on an PSTN:
 
@@ -76,6 +89,6 @@ Original Written by:
 * James C. Boerkoel Jr.
 
 Please contact Jordan R. Abrahams if you have any questions about the internals
-of the code, documentation, or the results gathered.
+of the code, documentation, or any of the results gathered.
 
 [1]: https://github.com/CrystalLord/pulp/commit/693ad5d91380aacfe48297ad772c2ae4b248970a
