@@ -6,7 +6,7 @@ This is the code is closely tied to the paper:
 
 Abrahams et al. 2019. DREAM: An Algorithm for Mitigating the Overhead of Robust Rescheduling.
 In _Proc. of the 29th International Conference on Automated Planning and
-Scheduling (ICAPS-2019)_.
+Scheduling (ICAPS-2019)_.  A pre-print is available [here](https://www.cs.hmc.edu/HEAT/papers/Abrahams_et_al_ICAPS_2019.pdf).
 
 ## Usage and Set Up
 
