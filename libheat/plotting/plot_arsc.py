@@ -29,13 +29,13 @@ def plot_arsc_cross(df, **kwargs):
         matplotlib current set of axes.
     """
     # Start setup -------------------------------------------------------------
-    if not "sc_threshold" in kwargs and not "ar_threshold" in kwargs:
+    if "sc_threshold" not in kwargs and "ar_threshold" not in kwargs:
         raise ValueError("Requires either 'sc_threshold' or 'ar_threshold' set"
                          " when using ARSI algorithm")
-    elif not "sc_threshold" in kwargs:
+    elif "sc_threshold" not in kwargs:
         # sc cross section not present, must be using SC
         using_sc = True
-        ar_cut= kwargs["ar_threshold"]
+        ar_cut = kwargs["ar_threshold"]
     else:
         # Must be using AR then
         using_sc = False
@@ -55,10 +55,10 @@ def plot_arsc_cross(df, **kwargs):
     else:
         if naming == "arsi":
             arsc = df.loc[(df['execution'] == naming)
-                        & (df["si_threshold"] == sc_cut)]
+                          & (df["si_threshold"] == sc_cut)]
         else:
             arsc = df.loc[(df['execution'] == naming)
-                        & (df["sc_threshold"] == sc_cut)]
+                          & (df["sc_threshold"] == sc_cut)]
 
     if "threshold_range" in kwargs:
         thresholds = kwargs["threshold_range"]
@@ -77,9 +77,9 @@ def plot_arsc_cross(df, **kwargs):
         data = threshold_means(arsc, "ar_threshold", thresholds,
                                drea, error_fac=ERROR_FAC)
 
-    #if using_sc:
+    # if using_sc:
     #    arsc_label = "ARSC ".format(ar_cut)
-    #else:
+    # else:
     #    arsc_label = "ARSC ".format(sc_cut)
     arsc_label = "DREAM "
     srea_rob = srea["robustness"].mean()
@@ -88,8 +88,8 @@ def plot_arsc_cross(df, **kwargs):
         ax = kwargs["ax"]
         ax.errorbar(thresholds, data.robs, yerr=data.robs_err,
                     linestyle='-',
-                     capsize=4, linewidth=1,
-                     label=arsc_label + "Robustness")
+                    capsize=4, linewidth=1,
+                    label=arsc_label + "Robustness")
         if using_sc:
             ax.errorbar(thresholds, data.sends, yerr=data.sends_err,
                         linestyle='-.',
@@ -102,18 +102,17 @@ def plot_arsc_cross(df, **kwargs):
                         capsize=4,
                         label=arsc_label + "Reschedules")
         ax.plot(thresholds, data.runtimes, linestyle=':', linewidth=1,
-                 label=arsc_label + "Runtime")
+                label=arsc_label + "Runtime")
 
         try:
             if kwargs["plot_srea"]:
-                ax.plot([0.0, 1.0], [srea_rob/drea_rob*100]*2,
+                ax.plot([0.0, 1.0], [srea_rob / drea_rob * 100] * 2,
                         dashes=(4, 3, 2, 3),
                         label="SREA Robustness",
                         color="k",
                         linewidth=1)
         except KeyError:
             pass
-
 
         ax.legend(loc="lower left", framealpha=0.2)
         #ax.title(arsc_label+"Cross Section")
@@ -134,7 +133,7 @@ def plot_arsc_cross(df, **kwargs):
                  label=arsc_label + "Runtime")
 
         plt.legend(loc="lower center")
-        plt.title(arsc_label+"Cross Section")
+        plt.title(arsc_label + "Cross Section")
         if using_sc:
             plt.xlabel("SC Threshold")
         else:

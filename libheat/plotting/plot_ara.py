@@ -35,11 +35,11 @@ def plot_ara(df, **kwargs):
         thresholds = [0.0, 0.0625, 0.125, 0.25, 0.375, 0.5, 0.75, 1.0]
     # End setup ---------------------------------------------------------------
     data = threshold_means(ara, "ar_threshold", thresholds,
-                            drea, error_fac=ERROR_FAC)
+                           drea, error_fac=ERROR_FAC)
 
-    #if using_sc:
+    # if using_sc:
     #    aralabel = "ARSC ".format(ar_cut)
-    #else:
+    # else:
     #    aralabel = "ARSC ".format(sc_cut)
     aralabel = "DREA-AR Alt "
     srea_rob = srea["robustness"].mean()
@@ -50,18 +50,18 @@ def plot_ara(df, **kwargs):
         ax = plt.gca()
     ax.errorbar(thresholds, data.robs, yerr=data.robs_err,
                 linestyle='-',
-                 capsize=4, linewidth=1,
-                 label=aralabel + "Robustness")
+                capsize=4, linewidth=1,
+                label=aralabel + "Robustness")
     ax.errorbar(thresholds, data.res, linestyle='-.',
                 yerr=data.res_err, linewidth=1,
                 capsize=4,
                 label=aralabel + "Reschedules")
     ax.plot(thresholds, data.runtimes, linestyle=':', linewidth=1,
-             label=aralabel + "Runtime")
+            label=aralabel + "Runtime")
 
     try:
         if kwargs["plot_srea"]:
-            ax.plot([0.0, 1.0], [srea_rob/drea_rob*100]*2,
+            ax.plot([0.0, 1.0], [srea_rob / drea_rob * 100] * 2,
                     dashes=(4, 3, 2, 3),
                     label="SREA Robustness",
                     color="k",
@@ -76,5 +76,5 @@ def plot_ara(df, **kwargs):
     ax.set_xlim(X_AXIS_RANGE)
     ax.set_ylim(Y_AXIS_RANGE)
 
-    if not "ax" in kwargs:
+    if "ax" not in kwargs:
         plt.show()

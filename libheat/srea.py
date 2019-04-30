@@ -5,13 +5,10 @@ This file is mostly unchanged from the original RobotBrunch code.
 Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
 """
 
-import json
-import sys
 from math import floor, ceil
-import argparse
 import pulp
 
-from .stntools import STN, load_stn_from_json_file
+from .stntools import STN
 from .stntools.distempirical import invcdf_norm, invcdf_uniform
 
 # \file SREA.py
@@ -30,6 +27,8 @@ from .stntools.distempirical import invcdf_norm, invcdf_uniform
 
 # \fn addConstraint(constraint,problem)
 #  \brief Adds an LP constraint to the given LP
+
+
 def addConstraint(constraint, problem):
     problem += constraint
     # print 'adding constraint', constraint
@@ -42,7 +41,6 @@ def addConstraint(constraint, problem):
 
 
 def setUpLP(stn, decouple):
-    initialBounds = {}
     bounds = {}
     deltas = {}
 
@@ -71,18 +69,18 @@ def setUpLP(stn, decouple):
                                              (j, i), lowBound=0, upBound=None)
 
         else:
-            # ignore edges from z. these edges are implicitly handled with the bounds
-            # on the LP variables
+            # ignore edges from z. these edges are implicitly handled
+            # with the bounds on the LP variables
             if i != 0 and not decouple:
-                    addConstraint(bounds[(j, '+')]-bounds[(i, '-')]
+                addConstraint(bounds[(j, '+')] - bounds[(i, '-')]
                               <= stn.get_edge_weight(i, j), prob)
-                    addConstraint(bounds[(i, '+')]-bounds[(j, '-')]
+                addConstraint(bounds[(i, '+')] - bounds[(j, '-')]
                               <= stn.get_edge_weight(j, i), prob)
 
             elif i != 0 and (i, j) in stn.interagentEdges:
-                addConstraint(bounds[(j, '+')]-bounds[(i, '-')]
+                addConstraint(bounds[(j, '+')] - bounds[(i, '-')]
                               <= stn.get_edge_weight(i, j), prob)
-                addConstraint(bounds[(i, '+')]-bounds[(j, '-')]
+                addConstraint(bounds[(i, '+')] - bounds[(j, '-')]
                               <= stn.get_edge_weight(j, i), prob)
     return (bounds, deltas, prob)
 
@@ -110,7 +108,7 @@ def srea(inputstn,
          ub=0.999):
     inputstn = inputstn.copy()
     # dictionary of alphas for binary search
-    alphas = {i: i/1000.0 for i in range(1001)}
+    alphas = {i: i / 1000.0 for i in range(1001)}
 
     # bounds for binary search
     lower = ceil(lb * 1000) - 1
@@ -148,10 +146,11 @@ def srea(inputstn,
 
         # finished our search, load the smallest alpha decoupling
         if upper - lower <= 1:
-            if result != None:
+            if result is not None:
                 alpha, LPbounds = result
                 if debug:
-                    print('modifying STN with lowest good alpha, {}'.format(alpha))
+                    print(
+                        'modifying STN with lowest good alpha, {}'.format(alpha))
                 for i, sign in LPbounds:
                     if sign == '+':
                         inputstn.update_edge(
@@ -165,7 +164,7 @@ def srea(inputstn,
                 else:
                     return inputstn
     # skip the rest if there was no decoupling at all
-    if result == None:
+    if result is None:
         if debug:
             print('could not produce feasible LP.')
         return None
@@ -197,11 +196,10 @@ def srea_LP(inputstn,
             ):
 
     # Check some types to make sure everything is the correct type
-    if type(inputstn) != STN:
+    if not isinstance(inputstn, STN):
         raise TypeError("inputstn is not of type STN")
 
     alpha = round(float(alpha), 3)
-    #one_minus_alpha = round(1-float(alpha), 3)
 
     if probContainer is None:
         if debug:
@@ -227,8 +225,6 @@ def srea_LP(inputstn,
             limit_ij = invcdf_uniform(0.0, edge.dist_lb, edge.dist_ub)
             limit_ji = -invcdf_uniform(1.0, edge.dist_lb, edge.dist_ub)
 
-
-
         deltas[(i, j)].upBound = limit_ij - p_ij
         deltas[(j, i)].upBound = limit_ji - p_ji
 
@@ -243,7 +239,8 @@ def srea_LP(inputstn,
     #   Our objective function is SUM delta_ij
     # ##
     deltaSum = sum([deltas[(i, j)] for i, j in deltas])
-    prob += deltaSum, 'Maximize time added back to constraints while decoupling'
+    prob += deltaSum, 'Maximize time added back to \
+        constraints while decoupling'
 
     if debug:
         prob.writeLP('STN.lp')
@@ -257,10 +254,10 @@ def srea_LP(inputstn,
     # resolvable.  I don't know much about the inner workings of pulp and
     # stack overflow suggested I put in this fix so I did.
     # https://stackoverflow.com/questions/27406858/pulp-solver-error
-    #try:
+    # try:
     prob.solve()
-    #except Exception:
-        #return None
+    # except Exception:
+    # return None
 
     status = pulp.LpStatus[prob.status]
     if debug:
@@ -272,12 +269,12 @@ def srea_LP(inputstn,
         return None
     return bounds
 
-## \fn getRobustness(stn)
-##  \brief Calls the rust simulator to compute the robustness of the input STN
-##  NOTE: This is now depracated
+# \fn getRobustness(stn)
+# \brief Calls the rust simulator to compute the robustness of the input STN
+# NOTE: This is now depracated
 #
 #
-#def getRobustness(stn):
+# def getRobustness(stn):
 #    tempstn = 'json/temp.json'
 #
 #    with open(tempstn, 'w+') as f:
@@ -305,11 +302,11 @@ def srea_LP(inputstn,
 #    return float(match.group(1))
 #
 #
-## \fn getDispatch(stn)
-##  \brief performs srea on the given STN
+# \fn getDispatch(stn)
+# \brief performs srea on the given STN
 ##
-##  \returns STN that represents the dispatch strategy
-#def getDispatch(stn, invCDF_map):
+# \returns STN that represents the dispatch strategy
+# def getDispatch(stn, invCDF_map):
 #
 #    output = srea(stn, invCDF_map)
 #
@@ -331,75 +328,3 @@ def srea_LP(inputstn,
 #
 #    print("srea did not result in a feasible LP, please try again with a different STN")
 #    return None
-
-
-# \fn main
-#  \brief Sets up and solves the LP
-# \deprecated NOTE: This function is now deprecated.
-# Do not call srea directly.
-def main():
-    # handle command line input
-    raise NotImplementedError
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('jsonFile', metavar='JSON', type=str,
-                        help='STN json file')
-    parser.add_argument("-d", "--debugAlpha", action="store_true", dest="debugAlpha",
-                        help="Print alpha level debugging info.")
-    parser.add_argument("-D", "--debugLP", action="store_true", dest="debugLP",
-                        help="Print LP debugging info.")
-    parser.add_argument("-m", "--makespan", type=int, dest="makespan",
-                        help="Set the makespan for the schedule")
-    parser.add_argument("-s", "--save", type=str, action="store",
-                        dest="saveSTN",
-                        help="Store the output STN in a JSON file.")
-    parser.add_argument("-i", "--decouple", action="store_true", dest="decoupleLP",
-                        help="adds decoupling constraints to LP")
-
-    options = parser.parse_args()
-
-    if options.jsonFile == None:
-        parser.error("Incorrect number of arguments")
-
-    try:
-        stn = load_stn_from_json_file(options.jsonFile)['stn']
-    except IOError as e:
-        sys.stderr.write("I/O error({0}): {1}\n".format(e.errno, e.strerror))
-        print((sys.exc_info()[0]))
-        sys.exit(1)
-    except TypeError as e:
-        sys.stderr.write("Type error: {0}\n".format(e))
-        print((traceback.format_exc()))
-        sys.exit(1)
-
-    if options.makespan != None:
-        stn.setMakespan(options.makespan)
-        print("Set makespan to {}".format(options.makespan))
-
-    # FIXME: Do not pass None type to srea's invCDF argument.
-    #output = srea(STN, None, debug = options.debugAlpha, debugLP = options.debugLP, decouple = options.decoupleLP)
-
-    if output != None:
-        alpha, stn = output
-        # print getRobustness(stn)
-        if not options.debugLP and not options.decoupleLP:
-            stn.minimize()
-        for (i, j), edge in list(stn.contingent_edges.items()):
-            edge_i = stn.getEdge(0, i)
-            edge_j = stn.getEdge(0, j)
-            edge.Cij = edge_j.getWeightMax()-edge_i.getWeightMax()
-            edge.Cji = - (edge_j.getWeightMin()-edge_i.getWeightMin())
-            # this loop ensures that the output STN with integer edge weights is still
-            # strongly controllable
-            for connected_edge in stn.getOutgoing(j):
-                edge.Cji = -max(-edge.Cji, edge.Cij -
-                                connected_edge.Cji-connected_edge.Cij)
-
-    if options.saveSTN != None:
-        with open(options.saveSTN, "w") as f:
-            json.dump(stn.forJSON(), f, indent=2, separators=(',', ':'))
-
-
-if __name__ == '__main__':
-    main()

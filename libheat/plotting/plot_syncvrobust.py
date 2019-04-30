@@ -48,11 +48,11 @@ def plot_syncvrobust(df, errorbars=True, executions=None, thresholds=None):
                 mean = run_series.mean()
                 err = run_series.sem()  # Standard error bar.
                 if ex in data_y:
-                    data_y[ex].append(mean*100)
-                    data_err[ex].append(err*100)
+                    data_y[ex].append(mean * 100)
+                    data_err[ex].append(err * 100)
                 else:
-                    data_y[ex] = [mean*100]
-                    data_err[ex] = [err*100]
+                    data_y[ex] = [mean * 100]
+                    data_err[ex] = [err * 100]
             else:
                 for t in thresholds:
                     thresh_series = run_deg.loc[run_deg["threshold"]
@@ -61,11 +61,11 @@ def plot_syncvrobust(df, errorbars=True, executions=None, thresholds=None):
                     err = thresh_series.sem()
                     label = ex + "_" + str(t)  # Make a unique label for each
                     if label in data_y:
-                        data_y[label].append(mean*100)
-                        data_err[label].append(err*100)
+                        data_y[label].append(mean * 100)
+                        data_err[label].append(err * 100)
                     else:
-                        data_y[label] = [mean*100]
-                        data_err[label] = [err*100]
+                        data_y[label] = [mean * 100]
+                        data_err[label] = [err * 100]
     linestyles = ["-", "--", ":", "-."]
     for i, label in enumerate(data_y.keys()):
         if errorbars:
@@ -74,7 +74,7 @@ def plot_syncvrobust(df, errorbars=True, executions=None, thresholds=None):
                          linestyle=linestyles[i % len(linestyles)])
         else:
             plt.plot(x_values, data_y[label], linewidth=1, label=label,
-                         linestyle=linestyles[i % len(linestyles)])
+                     linestyle=linestyles[i % len(linestyles)])
     plt.ylim(0, 100)
     plt.xlim(0, 25)
     plt.legend()

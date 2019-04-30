@@ -21,6 +21,8 @@ from .stn import STN
 # @param reduction  Not sure what this does.
 # @return           Returns the dictionary of the form...
 #                   {'stn' : STN, 'agent_count' : numAgents}
+
+
 def load_stn_from_json(json_str, using_pstn=True):
     jsonstn = json.loads(json_str)
     return load_stn_from_json_obj(jsonstn,
@@ -36,7 +38,7 @@ def load_stn_from_json(json_str, using_pstn=True):
 # @return Returns a dictionary that has the format
 #   {'stn' : STN, 'agent_count' : numAgents}
 def load_stn_from_json_file(filepath, using_pstn=True, from_millis=False):
-    with open(filepath,'r') as f:
+    with open(filepath, 'r') as f:
         output_dict = load_stn_from_json(f.read(),
                                          using_pstn=using_pstn)
     output_dict["stn"].name = os.path.basename(filepath)
@@ -72,15 +74,16 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
         if not v['owner_id'] in agents:
             agents.append(v['owner_id'])
 
-        # We don't necessarily need a location, just set it to None if we don't.
+        # We don't necessarily need a location, just set it to None if we
+        # don't.
         if not ('location' in v):
             v['location'] = None
 
         stn.add_vertex(v['node_id'], v['owner_id'],
-                      v['location'])
+                       v['location'])
 
-        stn.add_edge(0, v['node_id'], float(v['min_domain'])*conv_fact,
-                    float(v['max_domain'])*conv_fact)
+        stn.add_edge(0, v['node_id'], float(v['min_domain']) * conv_fact,
+                     float(v['max_domain']) * conv_fact)
         if 'executed' in v:
             if v['executed']:
                 stn.execute(v['node_id'])
@@ -89,19 +92,19 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
     for e in jsonstn['constraints']:
         if 'distribution' in e and using_pstn:
             stn.add_edge(e['first_node'],
-                               e['second_node'],
-                               float(e['min_duration'])*conv_fact,
-                               float(e['max_duration'])*conv_fact,
-                               e['distribution']['name'])
+                         e['second_node'],
+                         float(e['min_duration']) * conv_fact,
+                         float(e['max_duration']) * conv_fact,
+                         e['distribution']['name'])
         else:
             stn.add_edge(e['first_node'],
-                               e['second_node'],
-                               float(e['min_duration'])*conv_fact,
-                               float(e['max_duration'])*conv_fact)
+                         e['second_node'],
+                         float(e['min_duration']) * conv_fact,
+                         float(e['max_duration']) * conv_fact)
 
     stn.agents = agents
 
-    #if reduction:
+    # if reduction:
     #    # Triangulate the STN
     #    stnCopy = stn.copy()
     #    agentWait = []
@@ -120,7 +123,7 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
 
     # Return back an dictionary for easy labelling of return types.
     # This is done due to legacy support, but it's not too bad here.
-    output_dict = {'stn' : stn}
+    output_dict = {'stn': stn}
 
     # Ideally, this would return a class, however, this is already butchering
     # quite a bit of legacy support, and a class would end up being even more

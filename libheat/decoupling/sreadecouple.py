@@ -25,6 +25,7 @@ def decouple_agents(stn: STN):
     guide = results[1]
     return alpha, extract_substns(stn, guide)
 
+
 def extract_substns(stn: STN, guide: STN):
     new_stn = apply_decoupling_constraints(stn, guide)
     substns = []

@@ -51,7 +51,7 @@ def alpha_binary_search(stn: STN, fidelity=0.001):
     current_alpha = -1.0
     assignments = None
     while True:
-        new_alpha = (upper_bound + lower_bound)/2
+        new_alpha = (upper_bound + lower_bound) / 2
         if abs(new_alpha - current_alpha) <= fidelity:
             # We have found an acceptable alpha.
             break
@@ -126,8 +126,8 @@ def apply_contingent_bounds(stn: STN, prob, variables: dict, alpha: float):
     """Apply the contingent constraints set by an alpha value"""
 
     for (i, j), edge in list(stn.contingent_edges.items()):
-        p_ij = invcdf_norm(1.0-alpha*0.5, edge.mu, edge.sigma)
-        p_ji = -invcdf_norm(alpha*0.5, edge.mu, edge.sigma)
+        p_ij = invcdf_norm(1.0 - alpha * 0.5, edge.mu, edge.sigma)
+        p_ji = -invcdf_norm(alpha * 0.5, edge.mu, edge.sigma)
 
         # Lund et al. LP (3)
         con3 = (variables[(j, '+')] - variables[(i, '+')] == p_ij)

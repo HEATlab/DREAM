@@ -15,33 +15,33 @@ def communication(df):
     df05 = tabledf.loc[tabledf["sc_threshold"] == 0.5]
     df1 = tabledf.loc[tabledf["sc_threshold"] == 1]
 
-    plt.scatter(df0["send_freq"]/100,
-                df0["robustness"]/100,
+    plt.scatter(df0["send_freq"] / 100,
+                df0["robustness"] / 100,
                 marker="o",
                 c=(0, 0, 0, 0.5), zorder=3,
                 label="mSC = 0")
-    plt.scatter(df00625["send_freq"]/100,
-                df00625["robustness"]/100,
+    plt.scatter(df00625["send_freq"] / 100,
+                df00625["robustness"] / 100,
                 marker="<",
                 c=(0.05, 0.05, 0.05, 0.5), zorder=4,
                 label="mSC = 0.0625")
-    plt.scatter(df0125["send_freq"]/100,
-                df0125["robustness"]/100,
+    plt.scatter(df0125["send_freq"] / 100,
+                df0125["robustness"] / 100,
                 marker="*",
                 c=(0.05, 0.05, 0.05, 0.5), zorder=4,
                 label="mSC = 0.125")
-    plt.scatter(df025["send_freq"]/100,
-                df025["robustness"]/100,
+    plt.scatter(df025["send_freq"] / 100,
+                df025["robustness"] / 100,
                 marker="^",
                 c=(0.1, 0.1, 0.1, 0.5), zorder=5,
                 label="mSC = 0.25")
-    plt.scatter(df05["send_freq"]/100,
-                df05["robustness"]/100,
+    plt.scatter(df05["send_freq"] / 100,
+                df05["robustness"] / 100,
                 marker="h",
                 c=(0.15, 0.15, 0.15, 0.5), zorder=6,
                 label="mSC = 0.5")
-    plt.scatter(df1["send_freq"]/100,
-                df1["robustness"]/100,
+    plt.scatter(df1["send_freq"] / 100,
+                df1["robustness"] / 100,
                 marker="X",
                 c=(0.2, 0.2, 0.2, 0.5), zorder=6,
                 label="mSC = 1")
@@ -65,34 +65,33 @@ def reschedules(df):
     df05 = tabledf.loc[tabledf["ar_threshold"] == 0.5]
     df1 = tabledf.loc[tabledf["ar_threshold"] == 1]
 
-
-    plt.scatter(df0["reschedule_freq"]/100,
-                df0["robustness"]/100,
+    plt.scatter(df0["reschedule_freq"] / 100,
+                df0["robustness"] / 100,
                 marker="o",
                 c=(0, 0, 0, 0.5), zorder=3,
                 label="mAR = 0.0")
-    plt.scatter(df00625["reschedule_freq"]/100,
-                df00625["robustness"]/100,
+    plt.scatter(df00625["reschedule_freq"] / 100,
+                df00625["robustness"] / 100,
                 marker="<",
                 c=(0, 0, 0, 0.5), zorder=3,
                 label="mAR = 0.0625")
-    plt.scatter(df0125["reschedule_freq"]/100,
-                df0125["robustness"]/100,
+    plt.scatter(df0125["reschedule_freq"] / 100,
+                df0125["robustness"] / 100,
                 marker="*",
                 c=(0.05, 0.05, 0.05, 0.5), zorder=4,
                 label="mAR = 0.125")
-    plt.scatter(df025["reschedule_freq"]/100,
-                df025["robustness"]/100,
+    plt.scatter(df025["reschedule_freq"] / 100,
+                df025["robustness"] / 100,
                 marker="^",
                 c=(0.1, 0.1, 0.1, 0.5), zorder=5,
                 label="mAR = 0.25")
-    plt.scatter(df05["reschedule_freq"]/100,
-                df05["robustness"]/100,
+    plt.scatter(df05["reschedule_freq"] / 100,
+                df05["robustness"] / 100,
                 marker="h",
                 c=(0.15, 0.15, 0.15, 0.5), zorder=6,
                 label="mAR = 0.5")
-    plt.scatter(df1["reschedule_freq"]/100,
-                df1["robustness"]/100,
+    plt.scatter(df1["reschedule_freq"] / 100,
+                df1["robustness"] / 100,
                 marker="X",
                 c=(0.2, 0.2, 0.2, 0.5), zorder=6,
                 label="mAR = 1")

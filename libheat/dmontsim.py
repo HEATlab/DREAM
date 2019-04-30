@@ -37,7 +37,7 @@ class DecoupledSimulator(Simulator):
         self.resample_stored_stn()
         # Create the decoupled substns
         substns = self._instantiate_subproblems(self.stn,
-            decouple_type=decouple_type)
+                                                decouple_type=decouple_type)
 
         if substns is None:
             pr.verbose("Failed to decouple, falling back to early exec.")
@@ -45,11 +45,11 @@ class DecoupledSimulator(Simulator):
         # Setup options
         first_run = True
         options = [{"first_run": True,
-                   "executed_contingent": False,
-                   "executed_time": 0.0} for i in range(len(self.stn.agents))]
+                    "executed_contingent": False,
+                    "executed_time": 0.0} for i in range(len(self.stn.agents))]
 
         # Setup default guide settings
-        guides = [self.stn]*len(self.stn.agents)
+        guides = [self.stn] * len(self.stn.agents)
         current_alpha = 0.0
 
         # Loop until all timepoints assigned.
@@ -93,7 +93,7 @@ class DecoupledSimulator(Simulator):
             selection = None
             for i, guide_stn in enumerate(guides):
                 new_selection = self.select_next_timepoint(guide_stn,
-                    self._current_time)
+                                                           self._current_time)
                 if selection is None:
                     selection = new_selection
                     continue
@@ -118,7 +118,7 @@ class DecoupledSimulator(Simulator):
                 for i, substn in enumerate(substns):
                     if next_vert_id in substn.verts:
                         #print("For substn {}...".format(i))
-                        #print("Assignments: {} to {}".format(next_vert_id,
+                        # print("Assignments: {} to {}".format(next_vert_id,
                         #                                     next_time))
                         self.assign_timepoint(substn, next_vert_id, next_time)
                         #print("After assignment:\n{}".format(substn))
@@ -147,13 +147,14 @@ class DecoupledSimulator(Simulator):
                         # STN locally. But this is too much effort for this
                         # algorithm. Return failure prematurely instead, and
                         # spit out a warning.
-                        pr.warning("Whole STN was consistent, but substn was not.")
+                        pr.warning(
+                            "Whole STN was consistent, but substn was not.")
                         return False
                 pr.vverbose("Done propagating our STN")
                 functiontimer.stop("propagation & check")
 
             #print("Full STN:\n{}".format(self.stn))
-            #for i, s in enumerate(substns):
+            # for i, s in enumerate(substns):
                 #print("Substn {}:\n{}".format(i, s))
 
             # Clean up the STN
@@ -223,7 +224,7 @@ class DecoupledSimulator(Simulator):
         try:
             result = srea.srea(stn)
         except Exception as e:
-            #print(e)
+            # print(e)
             #print("This was the STN that broke SREA:\n"+str(stn))
             srea.srea(stn, debugLP=True)
             #raise AssertionError()

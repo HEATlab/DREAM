@@ -24,17 +24,17 @@ def framefilters(df, add_sync_degree=True):
         any columns we wish to add.
     """
     if add_sync_degree:
-            # Add the synchrony column, extracted from the file name.
-            sync_column = []
-            for i, row in df.iterrows():
-                foldername = row["stn_path"].split("/")[-2]
-                try:
-                    synchrony = float(foldername.split("_")[4][1:])*0.001
-                except IndexError:
-                    synchrony = "NaN"
-                sync_column.append(synchrony)
-            df = df.assign(sync_deg=pd.Series(sync_column))
-        # Remove zeros present in the data.
+        # Add the synchrony column, extracted from the file name.
+        sync_column = []
+        for i, row in df.iterrows():
+            foldername = row["stn_path"].split("/")[-2]
+            try:
+                synchrony = float(foldername.split("_")[4][1:]) * 0.001
+            except IndexError:
+                synchrony = "NaN"
+            sync_column.append(synchrony)
+        df = df.assign(sync_deg=pd.Series(sync_column))
+    # Remove zeros present in the data.
     df = clearzero(df)
     return df[df.samples >= 50]
 
@@ -113,22 +113,22 @@ def threshold_means(df, thresh_name, thresholds, comp_df=None, error_fac=1.0,
 
     for t in thresholds:
         point = df.loc[df[thresh_name] == t]
-        mean = point["robustness"].mean()/comp_rob * p
+        mean = point["robustness"].mean() / comp_rob * p
         rob_means.append(mean)
         se = point["robustness"].sem() * p
-        stderrs.append(se*error_fac)
-        send_dat = point["send_freq"].mean()/comp_send * p
+        stderrs.append(se * error_fac)
+        send_dat = point["send_freq"].mean() / comp_send * p
         sends.append(send_dat)
         send_err = point["send_freq"].sem() * p
-        sends_err.append(send_err*error_fac)
-        res = point["reschedule_freq"].mean()/comp_res * p
+        sends_err.append(send_err * error_fac)
+        res = point["reschedule_freq"].mean() / comp_res * p
         reschedules.append(res)
         res_err = point["reschedule_freq"].sem() * p
-        reschedules_err.append(res_err*error_fac)
-        runtime = point["runtime"].mean()/comp_run * p
+        reschedules_err.append(res_err * error_fac)
+        runtime = point["runtime"].mean() / comp_run * p
         runtimes.append(runtime)
         runtime_err = point["runtime"].sem() * p
-        runtimes_err.append(runtime_err*error_fac)
+        runtimes_err.append(runtime_err * error_fac)
 
     class ThreshResponse(object):
         def __init__(self, robs, robs_err, sends, sends_err, res, res_err,
@@ -145,6 +145,7 @@ def threshold_means(df, thresh_name, thresholds, comp_df=None, error_fac=1.0,
     return ThreshResponse(rob_means, stderrs, sends, sends_err, reschedules,
                           reschedules_err, runtimes)
 
+
 def find_thresholds(df: pd.DataFrame, threshold_name: str):
     """Finds the set values of thresholds in the DataFrame
 
@@ -157,4 +158,3 @@ def find_thresholds(df: pd.DataFrame, threshold_name: str):
     """
     thresh_series = df[threshold_name]
     return thresh_series.unique()
-

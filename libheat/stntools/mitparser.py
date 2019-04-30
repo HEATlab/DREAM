@@ -39,7 +39,7 @@ def _make_stn(arr, add_z, connect_origin):
     name_to_id = {}
     # Number of events encountered so far.
     event_count = 0
-    # Create the STN. 
+    # Create the STN.
     stn = STN()
     stn.agents = [NO_AGENT]
     if add_z:
@@ -66,7 +66,7 @@ def _make_stn(arr, add_z, connect_origin):
                          float(mit_edge["properties"]["ub"] * 1000))
         else:
             stn.add_edge(name_to_id[start_name],
-                         name_to_id[end_name], 
+                         name_to_id[end_name],
                          -float("inf"),
                          float("inf"),
                          distribution=dist)

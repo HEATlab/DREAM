@@ -85,8 +85,8 @@ class Simulator(object):
                                                       current_alpha,
                                                       guide_stn,
                                                       options=options)
-            #print("GUIDE")
-            #print(guide_stn)
+            # print("GUIDE")
+            # print(guide_stn)
             functiontimer.stop("get_guide")
             pr.vverbose("Got guide")
 
@@ -111,7 +111,8 @@ class Simulator(object):
             # Propagate constraints (minimise) and check consistency.
             self._assign_timepoint(guide_stn, next_vert_id, next_time)
             self._assign_timepoint(self.stn, next_vert_id, next_time)
-            self._assign_timepoint(self.assignment_stn, next_vert_id, next_time)
+            self._assign_timepoint(
+                self.assignment_stn, next_vert_id, next_time)
             functiontimer.start("propagation & check")
             stn_copy = self.stn.copy()
             consistent = self.propagate_constraints(stn_copy)
@@ -342,8 +343,8 @@ class Simulator(object):
                          <= options["guide_max"])
             pr.verbose("In bounds?: {}".format(in_bounds))
             pr.verbose("{}, {}, {}".format(options["guide_min"],
-                                               options["executed_time"],
-                                               options["guide_max"]))
+                                           options["executed_time"],
+                                           options["guide_max"]))
             ans = self._drea_ara_algorithm(previous_alpha,
                                            previous_guide,
                                            options["first_run"],
@@ -399,7 +400,7 @@ class Simulator(object):
         return previous_alpha, previous_guide
 
     def _drea_s_algorithm(self, previous_alpha, previous_guide, first_run,
-                         executed_contingent, next_time, min_time, max_time):
+                          executed_contingent, next_time, min_time, max_time):
         """ Implements the SREA-S algorithm. """
         if first_run:
             return self._srea_wrapper(previous_alpha, previous_guide)
@@ -410,7 +411,7 @@ class Simulator(object):
                 # We need to reschedule now.
                 return self._srea_wrapper(previous_alpha, previous_guide)
             pr.verbose("Did not reschedule, t={} in [{}, {}]"
-                        .format(next_time, min_time, max_time))
+                       .format(next_time, min_time, max_time))
         return previous_alpha, previous_guide
 
     def _drea_si_algorithm(self, previous_alpha, previous_guide, first_run,
@@ -442,8 +443,8 @@ class Simulator(object):
 
         # num_cont : Number of remaining unexecuted contingent events
         num_cont = self.remaining_contingent_count(maybe_guide)
-        p_0 = (1-previous_alpha)**num_cont
-        p_1 = (1-new_alpha)**num_cont
+        p_0 = (1 - previous_alpha)**num_cont
+        p_1 = (1 - new_alpha)**num_cont
         if p_1 - p_0 > threshold:
             self.num_sent_schedules += 1
             pr.verbose("Got new drea-si guide with alpha={}".format(new_alpha))
@@ -519,7 +520,7 @@ class Simulator(object):
         if threshold == 0:
             n = float("inf")
         else:
-            while (1-previous_alpha)**(n+1) > threshold and attempts < 100:
+            while (1 - previous_alpha)**(n + 1) > threshold and attempts < 100:
                 n += 1
                 attempts += 1
 
@@ -556,9 +557,9 @@ class Simulator(object):
         # Temporary variable to maintain unique names.
         newfactor = successfactor
         if in_bounds:
-            newfactor *= 1.0-previous_alpha
+            newfactor *= 1.0 - previous_alpha
         else:
-            newfactor = min(1.0-previous_alpha, previous_alpha/2.0)
+            newfactor = min(1.0 - previous_alpha, previous_alpha / 2.0)
 
         if successfactor <= threshold:
             result = srea.srea(self.stn)
@@ -599,7 +600,7 @@ class Simulator(object):
         # n is a placeholder for how much uncertainty we can take.
         n = 0
         attempts = 0  # Make sure we can actually escape if threshold = 0
-        while (1-previous_alpha)**(n+1) > ar_threshold and attempts < 100:
+        while (1 - previous_alpha)**(n + 1) > ar_threshold and attempts < 100:
             n += 1
             attempts += 1
         # Should we reschedule?
@@ -623,7 +624,7 @@ class Simulator(object):
             return new_alpha, maybe_guide, 0
         else:
             pr.verbose(("ARSC did not send schedule, previous_alpha={}, "
-                       +"new_alpha={}")
+                        + "new_alpha={}")
                        .format(previous_alpha, new_alpha))
             return previous_alpha, previous_guide, contingent_event_counter
 

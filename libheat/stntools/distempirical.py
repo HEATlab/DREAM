@@ -31,7 +31,7 @@ def empirical_sample(distribution_name: str, state=None) -> float:
 
 
 def norm_sample(mu: float, sigma: float, state=None, res=1000,
-                  neg=False) -> float:
+                neg=False) -> float:
     """Retrieve a sample from a normal distribution
 
     Args:
@@ -126,20 +126,20 @@ def binary_search_lookup(val, l):
         >>> binary_search_lookup(11.0, [-5.0, 4.0, 10.0, 100.0])
         2
     """
-    up = len(l)-1
+    up = len(l) - 1
     lo = 0
-    look = (up + lo)//2
+    look = (up + lo) // 2
     while abs(up - lo) > 1:
         if l[look] == val:
             return look
         if val < l[look]:
             # We need to look lower.
             up = look
-            look = (up + lo)//2
+            look = (up + lo) // 2
         else:
             # We need to look higher.
             lo = look
-            look = (up + lo)//2
+            look = (up + lo) // 2
     # Didn't find the exact match, return the lower bound then.
     return lo
 
