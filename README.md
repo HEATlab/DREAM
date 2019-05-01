@@ -2,7 +2,7 @@
 
 Also known as the new version of the "RobotBrunch" codebase from HEATlab.
 
-This is the code is closely tied to the paper:
+This code is closely tied to the paper:
 
 Abrahams et al. 2019. DREAM: An Algorithm for Mitigating the Overhead of Robust Rescheduling.
 In _Proc. of the 29th International Conference on Automated Planning and
