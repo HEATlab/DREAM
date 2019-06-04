@@ -55,7 +55,7 @@ to convert between Google style to RST for Sphinx.
 ## Problem Instances
 All problem instances used to evaluate DREAM are available in the problem_instances directory.  They are parameterized into subdirectories by problem features, as described in [Lund et al 2017](https://aaai.org/ocs/index.php/AAAI/AAAI17/paper/download/14641/14163)
 
-The ROVERS benchmark is available at [http://groups.csail.mit.edu/mers/datasets/scheduling/](http://groups.csail.mit.edu/mers/datasets/scheduling/).  
+The ROVERS benchmark is available at [http://groups.csail.mit.edu/mers/datasets/scheduling/](http://groups.csail.mit.edu/mers/datasets/scheduling/).  [rovers_coordination.json](http://groups.csail.mit.edu/mers/datasets/scheduling/rover_coordination.json) contains the instances used to evaluate DREAM in the 2019 ICAPS paper.
 
 ## Project Notes
 Check out the [IDEAS.md](IDEAS.md) file to see what we (as a lab) have tried.
