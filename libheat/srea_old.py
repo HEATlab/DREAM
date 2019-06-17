@@ -1,5 +1,7 @@
 """Contains the core of the SREA algorithm.
+
 This file is mostly unchanged from the original RobotBrunch code.
+
 Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
 """
 
@@ -158,6 +160,7 @@ def srea(inputstn,
                             i, 0, ceil(-bounds[(i, '-')].varValue))
 
                 if returnAlpha:
+                    print(inputstn) #TODO- remove this
                     return alpha, inputstn
                 else:
                     return inputstn
@@ -206,18 +209,12 @@ def srea_LP(inputstn,
     else:
         bounds, deltas, prob = probContainer
 
-
-    norm_vals = {}
-
     for (i, j), edge in list(inputstn.contingent_edges.items()):
         if edge.dtype() == "gaussian":
-            med_ij = invcdf_norm(0.5, edge.mu, edge.sigma)
             p_ij = invcdf_norm(1.0 - alpha * 0.5, edge.mu, edge.sigma)
             p_ji = -invcdf_norm(alpha * 0.5, edge.mu, edge.sigma)
-            limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma) # TODO: figure out why 0.997; maybe change
+            limit_ij = invcdf_norm(0.997, edge.mu, edge.sigma)
             limit_ji = -invcdf_norm(0.003, edge.mu, edge.sigma)
-            norm_vals[(i,j)] = max(abs(p_ij - med_ij), 0.001)
-            norm_vals[(j,i)] = max(abs(p_ji + med_ij), 0.001)
             # p_ij = 1000*invCDF_map[edge.distribution][one_minus_alpha]
             # p_ji = -1000*invCDF_map[edge.distribution][alpha]
             # limit_ij = 1000*invCDF_map[edge.distribution]['1.0']
@@ -228,8 +225,6 @@ def srea_LP(inputstn,
             p_ji = -invcdf_uniform(alpha * 0.5, edge.dist_lb, edge.dist_ub)
             limit_ij = invcdf_uniform(0.0, edge.dist_lb, edge.dist_ub)
             limit_ji = -invcdf_uniform(1.0, edge.dist_lb, edge.dist_ub)
-            norm_vals[(i,j)] = max(abs(p_ij + p_ji)/2, 0.001)
-            norm_vals[(j,i)] = max(abs(p_ij + p_ji)/2, 0.001)
 
         deltas[(i, j)].upBound = limit_ij - p_ij
         deltas[(j, i)].upBound = limit_ji - p_ji
@@ -244,13 +239,8 @@ def srea_LP(inputstn,
     # Generate the objective function.
     #   Our objective function is SUM delta_ij
     # ##
-    #norm_deltaSum = sum([deltas[(i, j)]* 1/norm_vals[(i,j)] for i, j in deltas]) # version accounting for skew
-
-    # alt - not accounting for skew
-    norm_deltaSum = sum([2*deltas[(i,j)]/(norm_vals[(i,j)] + norm_vals[(j,i)]) for i,j in deltas])
-    
-
-    prob += norm_deltaSum, 'Maximize time added back to \
+    deltaSum = sum([deltas[(i, j)] for i, j in deltas])
+    prob += deltaSum, 'Maximize time added back to \
         constraints while decoupling'
 
     if debug:
@@ -265,18 +255,77 @@ def srea_LP(inputstn,
     # resolvable.  I don't know much about the inner workings of pulp and
     # stack overflow suggested I put in this fix so I did.
     # https://stackoverflow.com/questions/27406858/pulp-solver-error
-    try:
-        prob.solve()
-    except Exception:
-        return None
+    # try:
+    prob.solve()
+    # except Exception:
+    # return None
 
     status = pulp.LpStatus[prob.status]
     if debug:
         print('Status:', status)
-        # Each of the variables is printed with its resolved optimum value
+        # Each of the variables is printed with it's resolved optimum value
         for v in prob.variables():
             print(v.name, '=', v.varValue)
     if status != 'Optimal':
         return None
     return bounds
 
+# \fn getRobustness(stn)
+# \brief Calls the rust simulator to compute the robustness of the input STN
+# NOTE: This is now depracated
+#
+#
+# def getRobustness(stn):
+#    tempstn = 'json/temp.json'
+#
+#    with open(tempstn, 'w+') as f:
+#        json.dump(stn.forJSON(), f, indent=2, separators=(',', ':'))
+#
+#    # Find the robustness of the decoupling
+#    simulation = Popen(['../stpsimulator/target/release/simulator_stp',
+#                        '--samples', str(10000),
+#                        '--threads', '4',
+#                        '--sample_directory', '../stpsimulator/samples/',
+#                        tempstn],
+#                       stdout=PIPE, stderr=PIPE)
+#    simulation.wait()
+#
+#    dataRegex = re.compile(r'result:\n([0-9\.]+)')
+#
+#    # extract the robustness from simulator output
+#    simData = simulation.stdout.read()
+#    match = dataRegex.search(simData)
+#
+#    # simulator failed -- 0 robustness
+#    if match is None:
+#        return 0
+#
+#    return float(match.group(1))
+#
+#
+# \fn getDispatch(stn)
+# \brief performs srea on the given STN
+##
+# \returns STN that represents the dispatch strategy
+# def getDispatch(stn, invCDF_map):
+#
+#    output = srea(stn, invCDF_map)
+#
+#    if output != None:
+#        alpha, stn = output
+#        # print getRobustness(stn)
+#        stn.minimize()
+#        for (i, j), edge in list(stn.contingent_edges.items()):
+#            edge_i = stn.getEdge(0, i)
+#            edge_j = stn.getEdge(0, j)
+#            edge.Cij = edge_j.getWeightMax()-edge_i.getWeightMax()
+#            edge.Cji = - (edge_j.getWeightMin()-edge_i.getWeightMin())
+#            # this loop ensures that the output STN with integer edge weights is still
+#            # strongly controllable
+#            for connected_edge in stn.getOutgoing(j):
+#                edge.Cji = -max(-edge.Cji, edge.Cij -
+#                                connected_edge.Cji-connected_edge.Cij)
+#        return stn
+#
+#    print("srea did not result in a feasible LP, please try again with a different STN")
+#    return None
