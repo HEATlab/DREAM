@@ -4,10 +4,14 @@ File:
 """
 
 import math
+import numpy as np
 
 from .distempirical import norm_sample, uniform_sample
 
-MAX_FLOAT = 1.7976931348623157e+308
+# Technically, the exponent here should be 308.
+# But that leads to an overflow sometimes during floyd warshall.
+# This is probably good enough right now.
+MAX_FLOAT = 1.7976931348623157e+307
 
 
 class Vertex(object):
@@ -278,6 +282,7 @@ class STN(object):
 
         self.name = "Unnamed STN"
         """Identifying name of the STN"""
+
 
     # \brief String representation of the STN
     def __str__(self):
@@ -805,15 +810,18 @@ class STN(object):
 
     def floyd_warshall(self, create=False):
         verts = self.verts
-        B = {}
-        for u in self.verts.keys():
-            for v in self.verts.keys():
-                B[(u, v)] = self.get_edge_weight(u, v)
-        for k in verts.keys():
-            for i in verts.keys():
-                for j in verts.keys():
-                    B[(i, j)] = min(B[(i, j)], B[(i, k)] + B[(k, j)])
-                    self.update_edge(i, j, B[(i, j)], create=create)
+        key_list = list(self.verts.keys())
+        num_keys = len(key_list)
+        B = [[None] * num_keys for _ in range(num_keys)]
+
+        for iu, u in enumerate(key_list):
+            for iv, v in enumerate(key_list):
+                B[iu][iv] = self.get_edge_weight(u, v)
+        for ik in range(num_keys):
+            for ii, i in enumerate(key_list):
+                for ij, j in enumerate(key_list):
+                    B[ii][ij] = min(B[ii][ij], B[ii][ik] + B[ik][ij])
+                    self.update_edge(i, j, B[ii][ij], create=create)
 
         for e in self.get_all_edges():
             if e.get_weight_min() > e.get_weight_max():
