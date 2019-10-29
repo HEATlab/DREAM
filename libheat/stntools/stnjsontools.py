@@ -7,7 +7,7 @@
 import json
 import os.path
 from .stn import STN
-
+MAX_FLOAT = 100000000000000000.0
 ##
 # \fn loadSTNfromjson
 #
@@ -71,6 +71,12 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
     # Add the vertices
     for v in jsonstn['nodes']:
         # Accumulate a list of all the owners to retrieve the agents.
+        if not 'owner_id' in v.keys():
+            v['owner_id'] = 0
+        if not 'min_domain' in v.keys():
+            v['min_domain'] = 0
+        if not 'max_domain' in v.keys():
+            v['max_domain'] = MAX_FLOAT
         if not v['owner_id'] in agents:
             agents.append(v['owner_id'])
 
@@ -82,8 +88,8 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
         stn.add_vertex(v['node_id'], v['owner_id'],
                        v['location'])
 
-        stn.add_edge(0, v['node_id'], float(v['min_domain']) * conv_fact,
-                     float(v['max_domain']) * conv_fact)
+        stn.add_edge(0, v['node_id'], min(MAX_FLOAT,float(v['min_domain']) * conv_fact),
+                     min(MAX_FLOAT,float(v['max_domain']) * conv_fact))
         if 'executed' in v:
             if v['executed']:
                 stn.execute(v['node_id'])
@@ -93,14 +99,31 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
         if 'distribution' in e and using_pstn:
             stn.add_edge(e['first_node'],
                          e['second_node'],
-                         float(e['min_duration']) * conv_fact,
-                         float(e['max_duration']) * conv_fact,
+                         min(MAX_FLOAT,float(e['min_duration']) * conv_fact),
+                         min(MAX_FLOAT,float(e['max_duration']) * conv_fact),
                          e['distribution']['name'])
+        elif 'type' in e:
+            if e['type'] == 'stcu':
+
+                mu = (e['min_duration'] + e['max_duration'])/2000
+                sigma = (e['max_duration'] - e['min_duration'])/4000
+                dist = "N_" + str(mu) + '_' + str(sigma)
+                stn.add_edge(e['first_node'], e['second_node'], (mu-sigma)*1000, (mu+sigma)*1000, dist)
+                # stn.add_edge(e['first_node'], e['second_node'], 0, MAX_FLOAT, dist)
+            else:
+                stn.add_edge(e['first_node'],
+                            e['second_node'],
+                            min(MAX_FLOAT,float(e['min_duration']) ),
+                            min(MAX_FLOAT,float(e['max_duration']) ))
+
         else:
             stn.add_edge(e['first_node'],
                          e['second_node'],
-                         float(e['min_duration']) * conv_fact,
-                         float(e['max_duration']) * conv_fact)
+                         min(MAX_FLOAT,float(e['min_duration']) ),
+                         min(MAX_FLOAT,float(e['max_duration']) ))
+    print("stn_input")
+    print(stn)
+
 
     stn.agents = agents
 
