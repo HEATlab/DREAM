@@ -5,6 +5,7 @@ Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
 
 from math import floor, ceil
 import pulp
+import json
 
 from .stntools import STN
 from .stntools.distempirical import invcdf_norm, invcdf_uniform
@@ -156,7 +157,9 @@ def srea(inputstn,
                     else:
                         inputstn.update_edge(
                             i, 0, ceil(-bounds[(i, '-')].varValue))
-
+                # stnjson = inputstn.for_json()
+                # with open('mr_x_output.json', 'w') as json_file:
+                    # json.dump(stnjson, json_file)
                 if returnAlpha:
                     return alpha, inputstn
                 else:

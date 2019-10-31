@@ -121,8 +121,7 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
                          e['second_node'],
                          min(MAX_FLOAT,float(e['min_duration']) ),
                          min(MAX_FLOAT,float(e['max_duration']) ))
-    print("stn_input")
-    print(stn)
+
 
 
     stn.agents = agents

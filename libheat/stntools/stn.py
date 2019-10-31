@@ -56,9 +56,11 @@ class Vertex(object):
 
     # \brief Return a ready-for-json dictionary of this timepoint
     def for_json(self):
-        return {"node_id": self.nodeID, "local_id": self.localID,
-                "owner_id": self.ownerID, "location": self.location,
-                "executed": self.executed}
+        # return {"node_id": self.nodeID, "local_id": self.localID,
+        #         "owner_id": self.ownerID, "location": self.location,
+        #         "executed": self.executed}
+        return {"node_id": self.nodeID}
+        
 
     # \brief sets the vertex as executed by the agents
     def execute(self):
@@ -754,14 +756,14 @@ class STN(object):
             if v.nodeID == 0:
                 continue
             json = v.for_json()
-            json['min_domain'] = -self.get_edgeWeight(v.nodeID, 0)
-            json['max_domain'] = self.get_edgeWeight(0, v.nodeID)
+            json['min_domain'] = -self.get_edge_weight(v.nodeID, 0)
+            json['max_domain'] = self.get_edge_weight(0, v.nodeID)
             jsonSTN['nodes'].append(json)
 
         # Add the edges
         jsonSTN['constraints'] = []
         for c in self.get_all_edges():
-            if c.fake or c.i == 0:
+            if c.i == 0:
                 continue
             jsonSTN['constraints'].append(c.for_json())
 
