@@ -105,16 +105,16 @@ def load_stn_from_json_obj(jsonstn, using_pstn=True,
         elif 'type' in e:
             if e['type'] == 'stcu':
 
-                mu = (e['min_duration'] + e['max_duration'])/2000
-                sigma = (e['max_duration'] - e['min_duration'])/4000
+                mu = (e['min_duration'] + e['max_duration'])/2
+                sigma = (e['max_duration'] - e['min_duration'])/4
                 dist = "N_" + str(mu) + '_' + str(sigma)
-                stn.add_edge(e['first_node'], e['second_node'], (mu-sigma)*1000, (mu+sigma)*1000, dist)
-                # stn.add_edge(e['first_node'], e['second_node'], 0, MAX_FLOAT, dist)
+                #stn.add_edge(e['first_node'], e['second_node'], (mu-2*sigma)*1000, (mu+2*sigma)*1000, dist)
+                stn.add_edge(e['first_node'], e['second_node'], 0, MAX_FLOAT, dist)
             else:
                 stn.add_edge(e['first_node'],
                             e['second_node'],
-                            min(MAX_FLOAT,float(e['min_duration']) ),
-                            min(MAX_FLOAT,float(e['max_duration']) ))
+                            min(MAX_FLOAT, 1000*float(e['min_duration']) ),
+                            min(MAX_FLOAT, 1000*float(e['max_duration']) ))
 
         else:
             stn.add_edge(e['first_node'],
