@@ -10,6 +10,12 @@ Scheduling (ICAPS-2019)_.  A pre-print is available [here](https://www.cs.hmc.ed
 
 ## Usage and Set Up
 
+DREAM now requires the COIN-OR CBC program, located at `/usr/bin/cbc`. It can be installed on Debian systems via
+
+```
+sudo apt install coinor-cbc
+```
+
 Requirements (python packages) to run are listed in
 [requirements.txt](requirements.txt).
 
