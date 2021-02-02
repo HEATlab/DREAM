@@ -155,7 +155,7 @@ def _wilson_lp_setup(stn: STN):
         the Wilson et al. Paper.
     """
     dual_events = {}
-    prob = pulp.LpProblem("PSTN Optmial Decoupling (Wilson Edit)",
+    prob = pulp.LpProblem("PSTN_Optmial_Decoupling_(Wilson_Edit)",
                           pulp.LpMaximize)
 
     # At somepoint we may not have keys.
