@@ -36,26 +36,31 @@ else:
 #  `sudo pip install pulp` or `sudo easy_install -U pulp`.
 #  THEN RUN `sudo pulptest`, otherwise it won't work.
 
-# \fn addConstraint(constraint,problem)
-#  \brief Adds an LP constraint to the given LP
-
 
 def addConstraint(constraint, problem):
+    """Add an LP constraint to the given LP."""
     problem += constraint
     # print 'adding constraint', constraint
+
 
 # \fn setUpLP(stn)
 #  \brief initializes the LP problem and the LP variables that will not change
 #      with alpha
 #  \returns A tuple (bounds, deltas, prob) where bounds and deltas are
 #      dictionaries of LP variables, and prob is the LP problem instance
-
-
 def setUpLP(stn, decouple):
+    """Initialise the LP problem and the LP variables.
+
+    These are the LpVariables which do not change with alpha.
+
+    Returns:
+        tuple: Tuple of (bounds, deltas, prob) where `bounds` and `deltas` are
+        dictionaries of `LpVariable`s, and `prob` is the LpProblem instance.
+    """
     bounds = {}
     deltas = {}
 
-    prob = pulp.LpProblem('PSTN Robust Execution LP', pulp.LpMaximize)
+    prob = pulp.LpProblem('PSTN_Robust_Execution_LP', pulp.LpMaximize)
 
     # ##
     # Store Original STN edges and objective variables for easy access.
@@ -74,25 +79,31 @@ def setUpLP(stn, decouple):
 
     for i, j in stn.edges:
         if (i, j) in stn.contingent_edges:
-            deltas[(i, j)] = pulp.LpVariable('delta_%d_%d' %
-                                             (i, j), lowBound=0, upBound=None)
-            deltas[(j, i)] = pulp.LpVariable('delta_%d_%d' %
-                                             (j, i), lowBound=0, upBound=None)
+            deltas[(i, j)] = pulp.LpVariable('delta_%d_%d' % (i, j),
+                                             lowBound=0.0,
+                                             upBound=None)
+            deltas[(j, i)] = pulp.LpVariable('delta_%d_%d' % (j, i),
+                                             lowBound=0.0,
+                                             upBound=None)
 
         else:
             # ignore edges from z. these edges are implicitly handled
             # with the bounds on the LP variables
             if i != 0 and not decouple:
-                addConstraint(bounds[(j, '+')] - bounds[(i, '-')]
-                              <= stn.get_edge_weight(i, j), prob)
-                addConstraint(bounds[(i, '+')] - bounds[(j, '-')]
-                              <= stn.get_edge_weight(j, i), prob)
+                addConstraint(
+                    bounds[(j, '+')] - bounds[(i, '-')] <= stn.get_edge_weight(
+                        i, j), prob)
+                addConstraint(
+                    bounds[(i, '+')] - bounds[(j, '-')] <= stn.get_edge_weight(
+                        j, i), prob)
 
             elif i != 0 and (i, j) in stn.interagentEdges:
-                addConstraint(bounds[(j, '+')] - bounds[(i, '-')]
-                              <= stn.get_edge_weight(i, j), prob)
-                addConstraint(bounds[(i, '+')] - bounds[(j, '-')]
-                              <= stn.get_edge_weight(j, i), prob)
+                addConstraint(
+                    bounds[(j, '+')] - bounds[(i, '-')] <= stn.get_edge_weight(
+                        i, j), prob)
+                addConstraint(
+                    bounds[(i, '+')] - bounds[(j, '-')] <= stn.get_edge_weight(
+                        j, i), prob)
     return (bounds, deltas, prob)
 
 
@@ -117,6 +128,7 @@ def srea(inputstn,
          decouple=False,
          lb=0.0,
          ub=0.999):
+    """Run the SREA algorithm on an input STN."""
     inputstn = inputstn.copy()
     # dictionary of alphas for binary search
     alphas = {i: i / 1000.0 for i in range(1001)}
@@ -160,15 +172,15 @@ def srea(inputstn,
             if result is not None:
                 alpha, LPbounds = result
                 if debug:
-                    print(
-                        'modifying STN with lowest good alpha, {}'.format(alpha))
+                    print('modifying STN with lowest good alpha, {}'.format(
+                        alpha))
                 for i, sign in LPbounds:
                     if sign == '+':
-                        inputstn.update_edge(
-                            0, i, ceil(bounds[(i, '+')].varValue))
+                        inputstn.update_edge(0, i,
+                                             ceil(bounds[(i, '+')].varValue))
                     else:
-                        inputstn.update_edge(
-                            i, 0, ceil(-bounds[(i, '-')].varValue))
+                        inputstn.update_edge(i, 0,
+                                             ceil(-bounds[(i, '-')].varValue))
 
                 if returnAlpha:
                     return alpha, inputstn
@@ -181,7 +193,7 @@ def srea(inputstn,
         return None
 
     # Fail here
-    assert(False)
+    assert (False)
 
 
 # \fn srea_LP(inputstn,alpha,debug=False,probContainer=None)
@@ -192,20 +204,29 @@ def srea(inputstn,
 #  @param invCDF_map A dictionary of dictionaries generated from a
 #       distgenlib.invcdf_map call. See documentation there for more info.
 #  @param alpha The risk level (between 0 and 1) that we are using for the LP
-#  @param decouple originally was meant to indicate if we wanted decoupling or not
-#   but then we discovered that this already decouples the STN
+#  @param decouple originally was meant to indicate if we wanted decoupling
+#   or not but then we discovered that this already decouples the STN
 #  @param debug Print optional status messages
 #  @param probContainer Optional tuple of LP variables and the LP problem
 #       instance, returned from setUpLP
 #
 #  \returns A dictionary of the LP_variables for the bounds on timepoints.
-def srea_LP(inputstn,
-            alpha,
-            decouple,
-            debug=False,
-            probContainer=None
-            ):
+def srea_LP(inputstn, alpha, decouple, debug=False, probContainer=None):
+    """Run the robust execution LP on the input STN at the given alpha level.
 
+    Args:
+        inputSTN: The STN used as an input to the LP.
+        alpha: The risk level (between 0 and 1) that we are using for the LP.
+        decouple: originally was meant to indicate if we wanted decoupling,
+            but then we discovered that this algorithm already decouples the
+            STN.
+        debug: Print optional status messages.
+        probContainer: Optional tuple of LP variables and the LP problem
+            instance, returned from setUpLP.
+
+    Returns:
+        A dictionary of the LP_variables for the bounds on timepoints.
+    """
     # Check some types to make sure everything is the correct type
     if not isinstance(inputstn, STN):
         raise TypeError("inputstn is not of type STN")
@@ -214,7 +235,8 @@ def srea_LP(inputstn,
 
     if probContainer is None:
         if debug:
-            print('No saved LP variables, generating all LP variables from current STN')
+            print('No saved LP variables, generating all LP'
+                  ' variables from current STN')
         bounds, deltas, prob = setUpLP(inputstn, decouple)
     else:
         bounds, deltas, prob = probContainer
@@ -281,6 +303,7 @@ def srea_LP(inputstn,
         return None
     return bounds
 
+
 # \fn getRobustness(stn)
 # \brief Calls the rust simulator to compute the robustness of the input STN
 # NOTE: This is now depracated
@@ -331,12 +354,14 @@ def srea_LP(inputstn,
 #            edge_j = stn.getEdge(0, j)
 #            edge.Cij = edge_j.getWeightMax()-edge_i.getWeightMax()
 #            edge.Cji = - (edge_j.getWeightMin()-edge_i.getWeightMin())
-#            # this loop ensures that the output STN with integer edge weights is still
+#            # this loop ensures that the output STN with integer edge weights
+#            # is still
 #            # strongly controllable
 #            for connected_edge in stn.getOutgoing(j):
 #                edge.Cji = -max(-edge.Cji, edge.Cij -
 #                                connected_edge.Cji-connected_edge.Cij)
 #        return stn
 #
-#    print("srea did not result in a feasible LP, please try again with a different STN")
+#    print("srea did not result in a feasible LP, please try again with a"
+#          " different STN")
 #    return None
