@@ -4,12 +4,23 @@ This file is mostly unchanged from the original RobotBrunch code.
 
 Authors: Jordan R Abrahams, Kyle Lund, Sam Dietrich
 """
-
+import pathlib
 from math import floor, ceil
+import warnings
+
 import pulp
 
 from .stntools import STN
 from .stntools.distempirical import invcdf_norm, invcdf_uniform
+
+if pathlib.Path("/usr/bin/cbc").exists():
+    SOLVER = pulp.COIN_CMD(path="/usr/bin/cbc", mip=False, msg=False)
+else:
+    warnings.warn("[WARNING] Unable to find coin-or CBC at `/usr/bin/cbc`."
+                  " Install coinor-cbc"
+                  " at https://packages.debian.org/stable/coinor-cbc")
+    exit(1)
+
 
 # \file SREA.py
 #
@@ -222,11 +233,12 @@ def srea_LP(inputstn,
             p_ij = invcdf_uniform(1.0 - alpha * 0.5, edge.dist_lb,
                                   edge.dist_ub)
             p_ji = -invcdf_uniform(alpha * 0.5, edge.dist_lb, edge.dist_ub)
-            limit_ij = invcdf_uniform(0.0, edge.dist_lb, edge.dist_ub)
-            limit_ji = -invcdf_uniform(1.0, edge.dist_lb, edge.dist_ub)
+            limit_ij = invcdf_uniform(1.0, edge.dist_lb, edge.dist_ub)
+            limit_ji = -invcdf_uniform(0.0, edge.dist_lb, edge.dist_ub)
 
-        deltas[(i, j)].upBound = limit_ij - p_ij
-        deltas[(j, i)].upBound = limit_ji - p_ji
+        # Lund et al. LP (5), along with some upper bounds.
+        deltas[(i, j)].bounds(0.0, max(0.0, limit_ij - p_ij))
+        deltas[(j, i)].bounds(0.0, max(0.0, limit_ji - p_ji))
 
         cons1 = bounds[(j, "+")] - bounds[(i, "+")] == p_ij + deltas[(i, j)]
         cons2 = bounds[(j, "-")] - bounds[(i, "-")] == -p_ji - deltas[(j, i)]
@@ -238,9 +250,9 @@ def srea_LP(inputstn,
     # Generate the objective function.
     #   Our objective function is SUM delta_ij
     # ##
-    deltaSum = sum([deltas[(i, j)] for i, j in deltas])
-    prob += deltaSum, 'Maximize time added back to \
-        constraints while decoupling'
+    deltaSum = sum(list(deltas.values()))
+    prob += (deltaSum, 'Maximize_time_added_back_to_'
+             'constraints_while_decoupling')
 
     if debug:
         prob.writeLP('STN.lp')
@@ -255,17 +267,17 @@ def srea_LP(inputstn,
     # stack overflow suggested I put in this fix so I did.
     # https://stackoverflow.com/questions/27406858/pulp-solver-error
     # try:
-    prob.solve()
+    status = prob.solve(SOLVER)
     # except Exception:
     # return None
 
-    status = pulp.LpStatus[prob.status]
+    lp_status = pulp.LpStatus[status]
     if debug:
-        print('Status:', status)
+        print('Status:', lp_status)
         # Each of the variables is printed with it's resolved optimum value
         for v in prob.variables():
             print(v.name, '=', v.varValue)
-    if status != 'Optimal':
+    if lp_status != 'Optimal':
         return None
     return bounds
 
